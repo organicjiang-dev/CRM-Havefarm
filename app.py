@@ -5,62 +5,119 @@ from datetime import datetime
 import io
 import re
 
-# --- 0. 設定頁面配置與大字體 CSS ---
+# --- 0. 設定頁面配置與「超大字體 & 大按鈕 & 大格子」旗艦 CSS ---
 st.set_page_config(page_title="有其田 客服 CRM 系統", layout="wide", page_icon="🌾")
 
 st.markdown("""
 <style>
+    /* 全域基準字體放大 */
     html, body, [class*="css"] {
-        font-size: 21px !important;
+        font-size: 24px !important;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif !important;
     }
-    label p {
-        font-size: 22px !important;
-        font-weight: 700 !important;
-        color: #1a1a1a !important;
-        margin-bottom: 8px !important;
+
+    /* 最上方分頁按鈕 (Tabs) 專屬超大字體與加大間距 */
+    button[data-baseweb="tab"] {
+        font-size: 26px !important;
+        font-weight: 800 !important;
+        padding: 16px 28px !important;
+        margin-right: 12px !important;
+        line-height: 1.5 !important;
     }
-    input[type="text"], input[type="password"], input[type="number"], select, textarea {
-        font-size: 21px !important;
-        height: 52px !important;
-        border-radius: 8px !important;
-        border: 1.5px solid #a0a0a0 !important;
-        padding: 8px 14px !important;
-        background-color: #ffffff !important;
+    button[data-baseweb="tab"] p {
+        font-size: 26px !important;
+        font-weight: 800 !important;
     }
-    textarea {
-        height: 100px !important;
+
+    /* 大標題與副標題 */
+    h1 {
+        font-size: 42px !important;
+        font-weight: 900 !important;
+        margin-bottom: 24px !important;
     }
-    div[data-testid="column"] {
-        padding: 0 15px !important;
-    }
-    div[data-testid="stVerticalBlock"] > div {
+    h2, h3 {
+        font-size: 32px !important;
+        font-weight: 800 !important;
+        margin-top: 20px !important;
         margin-bottom: 16px !important;
     }
-    hr {
-        margin: 28px 0 !important;
-        border: 0 !important;
-        border-top: 2px solid #e0e0e0 !important;
+    h4, h5 {
+        font-size: 26px !important;
+        font-weight: 700 !important;
+        margin-top: 16px !important;
+        color: #2b6cb0 !important;
     }
-    [data-testid="stMetricValue"] {
-        font-size: 34px !important;
+
+    /* 輸入欄位標籤文字 (Label) */
+    label, label p, [data-testid="stWidgetLabel"] p {
+        font-size: 25px !important;
         font-weight: 800 !important;
+        color: #1a1a1a !important;
+        margin-bottom: 10px !important;
+    }
+
+    /* 所有輸入框、密碼框、數字框、下拉選單格子全體加高加大 */
+    input[type="text"], input[type="password"], input[type="number"], select, textarea, div[data-baseweb="select"] > div {
+        font-size: 24px !important;
+        min-height: 64px !important;
+        border-radius: 12px !important;
+        border: 2px solid #888888 !important;
+        padding: 10px 18px !important;
+        background-color: #ffffff !important;
+        font-weight: 600 !important;
+    }
+    
+    /* 下拉選單內部選項字體 */
+    div[data-baseweb="select"] span {
+        font-size: 24px !important;
+        font-weight: 600 !important;
+    }
+
+    /* 多行備註文字框加大 */
+    textarea {
+        min-height: 120px !important;
+        line-height: 1.6 !important;
+    }
+
+    /* 表單按鈕加大 */
+    .stButton > button {
+        min-height: 68px !important;
+        font-size: 26px !important;
+        font-weight: 900 !important;
+        border-radius: 12px !important;
+        padding: 0 32px !important;
+        margin-top: 14px !important;
+    }
+
+    /* 關鍵數據指標卡片 (Metrics) */
+    [data-testid="stMetricValue"] {
+        font-size: 40px !important;
+        font-weight: 900 !important;
         color: #2b6cb0 !important;
     }
     [data-testid="stMetricLabel"] p {
-        font-size: 20px !important;
-        font-weight: 600 !important;
+        font-size: 24px !important;
+        font-weight: 700 !important;
     }
-    .stButton > button {
-        height: 56px !important;
-        font-size: 22px !important;
-        font-weight: bold !important;
-        border-radius: 10px !important;
-        padding: 0 24px !important;
-        margin-top: 10px !important;
+
+    /* 展開摺疊面板 (Expander) 標題加大 */
+    details summary p, details summary span {
+        font-size: 25px !important;
+        font-weight: 800 !important;
     }
+
+    /* 表格字體放大 */
     div[data-testid="stDataFrame"] {
-        font-size: 19px !important;
+        font-size: 22px !important;
+    }
+
+    div[data-testid="column"] {
+        padding: 0 16px !important;
+    }
+    hr {
+        margin: 32px 0 !important;
+        border: 0 !important;
+        border-top: 2.5px solid #d0d0d0 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -291,7 +348,7 @@ with tab1:
         else:
             if len(matched_custs) > 1:
                 st.info(f"🔎 找到 {len(matched_custs)} 位符合條件的客戶，請選擇：")
-                cust_options = {f"[{c[1]}] {c[2]} (電話:{c[5]} / 地址:{str(c[9])[:18]}...)": c[0] for c in matched_custs}
+                cust_options = {f"[{c[1]}] {c[2]} (電話:{c[5]} / 地址:{str(c[9])[:20]}...)": c[0] for c in matched_custs}
                 selected_cid = st.selectbox("請選擇客戶：", list(cust_options.keys()), key="search_multi_select")
                 target_cid = cust_options[selected_cid]
             else:

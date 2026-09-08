@@ -5,14 +5,123 @@ from datetime import datetime
 import io
 import re
 
-# --- 1. 雲端資料庫連線 (Supabase PostgreSQL) ---
+# --- 0. 設定頁面配置與大字體 CSS ---
+st.set_page_config(page_title="有其田 客服 CRM 系統", layout="wide", page_icon="🌾")
+
+st.markdown("""
+<style>
+    html, body, [class*="css"] {
+        font-size: 21px !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif !important;
+    }
+    label p {
+        font-size: 22px !important;
+        font-weight: 700 !important;
+        color: #1a1a1a !important;
+        margin-bottom: 8px !important;
+    }
+    input[type="text"], input[type="password"], input[type="number"], select, textarea {
+        font-size: 21px !important;
+        height: 52px !important;
+        border-radius: 8px !important;
+        border: 1.5px solid #a0a0a0 !important;
+        padding: 8px 14px !important;
+        background-color: #ffffff !important;
+    }
+    textarea {
+        height: 100px !important;
+    }
+    div[data-testid="column"] {
+        padding: 0 15px !important;
+    }
+    div[data-testid="stVerticalBlock"] > div {
+        margin-bottom: 16px !important;
+    }
+    hr {
+        margin: 28px 0 !important;
+        border: 0 !important;
+        border-top: 2px solid #e0e0e0 !important;
+    }
+    [data-testid="stMetricValue"] {
+        font-size: 34px !important;
+        font-weight: 800 !important;
+        color: #2b6cb0 !important;
+    }
+    [data-testid="stMetricLabel"] p {
+        font-size: 20px !important;
+        font-weight: 600 !important;
+    }
+    .stButton > button {
+        height: 56px !important;
+        font-size: 22px !important;
+        font-weight: bold !important;
+        border-radius: 10px !important;
+        padding: 0 24px !important;
+        margin-top: 10px !important;
+    }
+    div[data-testid="stDataFrame"] {
+        font-size: 19px !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# --- 1. 客服人員帳號密碼設定 ---
+# 格式為 "帳號": "密碼"，日後可在此直接增減同仁帳號
+AUTH_USERS = {
+    "admin": "havefarm_29174887",      # 系統管理員
+    "service": "havefarm_29174887",    # 客服同仁共用帳號
+    "service02": "29174887_organic"      # 備用帳號
+}
+
+def check_login():
+    """檢查登入狀態，若未登入則顯示登入表單並阻擋後續畫面執行"""
+    if "logged_in" not in st.session_state:
+        st.session_state.logged_in = False
+        st.session_state.username = ""
+
+    if not st.session_state.logged_in:
+        col_space1, col_login, col_space2 = st.columns([1, 2, 1])
+        with col_login:
+            st.markdown("<br><br>", unsafe_allow_html=True)
+            st.markdown("## 🌾 有其田 客服系統 - 登入驗證")
+            st.info("🔒 為保護客戶個資安全，請輸入內部客服人員帳號與密碼以進入系統。")
+
+            with st.form("login_form"):
+                user_input = st.text_input("客服人員帳號", placeholder="請輸入帳號（例如: admin 或 service）").strip()
+                pass_input = st.text_input("登入密碼", type="password", placeholder="請輸入密碼").strip()
+                login_btn = st.form_submit_button("🔐 登入系統")
+
+                if login_btn:
+                    if user_input in AUTH_USERS and AUTH_USERS[user_input] == pass_input:
+                        st.session_state.logged_in = True
+                        st.session_state.username = user_input
+                        st.success("✅ 驗證成功，正在進入系統...")
+                        st.rerun()
+                    else:
+                        st.error("❌ 帳號或密碼錯誤，請重新輸入！")
+        return False
+    return True
+
+# 執行驗證攔截：未通過則直接停止後續載入
+if not check_login():
+    st.stop()
+
+# --- 側邊欄：顯示當前登入者與登出按鈕 ---
+with st.sidebar:
+    st.markdown(f"### 👤 目前使用者：`:blue[{st.session_state.username}]`")
+    st.caption("連線狀態：🟢 Supabase 雲端資料庫已加密連線")
+    if st.button("🚪 登出系統"):
+        st.session_state.logged_in = False
+        st.session_state.username = ""
+        st.rerun()
+
+# --- 2. 雲端資料庫連線 (Supabase PostgreSQL) ---
 @st.cache_resource
 def get_db_engine():
     db_url = st.secrets["SUPABASE_DB_URL"]
     if db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql://", 1)
     
-    # 確保連線帶有 SSL 模式
     connect_args = {}
     if "sslmode" not in db_url:
         connect_args["sslmode"] = "require"
@@ -36,7 +145,7 @@ def read_query(query, params=None):
     with engine.connect() as conn:
         return pd.read_sql_query(text(query), conn, params=params or {})
 
-# --- 2. 輔助轉換與精準搜尋 ---
+# --- 3. 輔助轉換與精準搜尋 ---
 def parse_date_code(val_str, default_channel="官網"):
     raw = str(val_str).strip()
     channel = default_channel
@@ -154,66 +263,7 @@ def update_customer_db(cid, code, name, gender, id_card, phone, phone_bak, tel, 
 def delete_order(order_id):
     execute_query("DELETE FROM orders WHERE order_id = :oid", {"oid": order_id})
 
-# --- 3. 系統介面與超大字體 CSS ---
-st.set_page_config(page_title="有其田 客服 CRM 系統", layout="wide", page_icon="🌾")
-
-st.markdown("""
-<style>
-    html, body, [class*="css"] {
-        font-size: 21px !important;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif !important;
-    }
-    label p {
-        font-size: 22px !important;
-        font-weight: 700 !important;
-        color: #1a1a1a !important;
-        margin-bottom: 8px !important;
-    }
-    input[type="text"], input[type="number"], select, textarea {
-        font-size: 21px !important;
-        height: 52px !important;
-        border-radius: 8px !important;
-        border: 1.5px solid #a0a0a0 !important;
-        padding: 8px 14px !important;
-        background-color: #ffffff !important;
-    }
-    textarea {
-        height: 100px !important;
-    }
-    div[data-testid="column"] {
-        padding: 0 15px !important;
-    }
-    div[data-testid="stVerticalBlock"] > div {
-        margin-bottom: 16px !important;
-    }
-    hr {
-        margin: 28px 0 !important;
-        border: 0 !important;
-        border-top: 2px solid #e0e0e0 !important;
-    }
-    [data-testid="stMetricValue"] {
-        font-size: 34px !important;
-        font-weight: 800 !important;
-        color: #2b6cb0 !important;
-    }
-    [data-testid="stMetricLabel"] p {
-        font-size: 20px !important;
-        font-weight: 600 !important;
-    }
-    .stButton > button {
-        height: 56px !important;
-        font-size: 22px !important;
-        font-weight: bold !important;
-        border-radius: 10px !important;
-        padding: 0 24px !important;
-        margin-top: 10px !important;
-    }
-    div[data-testid="stDataFrame"] {
-        font-size: 19px !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
+# --- 4. 主介面排版 ---
 st.title("🌾 有其田 客服管理系統 (CRM - 雲端版)")
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -677,7 +727,6 @@ with tab5:
                         if not name or (not p1 and not t1 and not cust_code):
                             continue
 
-                        # 檢查是否已存在
                         exist_df = read_query("SELECT customer_id FROM customers WHERE customer_code = :code OR phone = :phone", {"code": cust_code, "phone": p1})
 
                         if not exist_df.empty:

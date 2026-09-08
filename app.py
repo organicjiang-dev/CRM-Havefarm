@@ -5,18 +5,26 @@ from datetime import datetime, date, timedelta
 import io
 import re
 
-# --- 0. 設定頁面配置與「無空白行真空壓縮」CSS ---
+# --- 0. 設定頁面配置與「物理放大降維打擊」CSS ---
 st.set_page_config(page_title="有其田 客服 CRM 系統", layout="wide", page_icon="🌾")
 
-# 🚨 警告：下方 CSS 區塊內絕對不可加上任何「空白行」，否則會觸發 Streamlit 破壞 Bug！
+# 🚨 採用無空白行真空壓縮，防止 Streamlit 解析器切斷 CSS
 st.markdown("""
 <style>
 html, body, [class*="css"] { font-size: 24px !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif !important; }
-div[data-testid="stTabs"] > div[data-baseweb="tab-list"], div[data-testid="stTabs"] > div[role="tablist"], div[data-testid="stTabs"] > div { gap: 40px !important; margin-bottom: 20px !important; }
-div[data-testid="stTabs"] button[role="tab"] { margin-right: 30px !important; min-height: 100px !important; height: auto !important; padding: 15px 30px !important; background-color: #f7fafc !important; border-radius: 16px 16px 0 0 !important; border: 2px solid #e2e8f0 !important; border-bottom: none !important; }
-div[data-testid="stTabs"] button[role="tab"] p, div[data-testid="stTabs"] button[role="tab"] span, div[data-testid="stTabs"] button[role="tab"] div { font-size: 45px !important; font-weight: 900 !important; color: #4a5568 !important; line-height: 1.5 !important; margin: 0 !important; padding: 0 !important; white-space: nowrap !important; }
-div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] { border-top: 8px solid #e53e3e !important; background-color: #fff5f5 !important; }
-div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] p, div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] span { color: #e53e3e !important; }
+div[data-testid="stTabs"] { overflow: visible !important; }
+div[data-testid="stTabs"] > div { overflow: visible !important; }
+div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { gap: 50px !important; padding-top: 35px !important; padding-bottom: 10px !important; }
+
+/* 🔥 核心魔法：不改 font-size，直接將整顆按鈕「物理放大 1.8 倍」 */
+div[data-testid="stTabs"] button[data-baseweb="tab"] { transform: scale(1.8) !important; transform-origin: left bottom !important; background-color: #f7fafc !important; border-radius: 6px 6px 0 0 !important; border: 1px solid #cbd5e0 !important; border-bottom: none !important; margin-right: 25px !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"] * { font-weight: 900 !important; color: #4a5568 !important; }
+
+/* 選中時的樣式 (紅線 + 紅字) */
+div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] { border-top: 4px solid #e53e3e !important; background-color: #fff5f5 !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] * { color: #e53e3e !important; }
+
+/* 其他介面放大設定 */
 h1 { font-size: 45px !important; font-weight: 900 !important; margin-bottom: 24px !important; }
 h2, h3 { font-size: 34px !important; font-weight: 800 !important; margin-top: 20px !important; margin-bottom: 16px !important; }
 h4, h5 { font-size: 28px !important; font-weight: 700 !important; margin-top: 16px !important; color: #2b6cb0 !important; }

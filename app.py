@@ -5,7 +5,7 @@ from datetime import datetime, date, timedelta
 import io
 import re
 
-# --- 0. 設定頁面配置與「暴力強制放大」CSS ---
+# --- 0. 設定頁面配置與「終極暴力強制放大」CSS ---
 st.set_page_config(page_title="有其田 客服 CRM 系統", layout="wide", page_icon="🌾")
 
 st.markdown("""
@@ -16,34 +16,38 @@ st.markdown("""
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif !important;
     }
 
-    /* 🌟 針對 Streamlit 分頁按鈕進行暴力強制覆蓋 */
+    /* 🌟 針對 Streamlit 分頁容器進行強制撐開 */
+    div[data-testid="stTabs"] > div[data-baseweb="tab-list"],
+    div[data-testid="stTabs"] > div > div[role="tablist"] {
+        gap: 60px !important; /* 絕對拉開分頁按鈕之間的距離 */
+        margin-bottom: 30px !important;
+    }
+
+    /* 🌟 針對 Streamlit 分頁按鈕本身加大間距與框線 */
     div[data-testid="stTabs"] button[data-baseweb="tab"] {
-        margin-right: 50px !important; /* 強制拉開按鈕之間的距離 (50px) */
-        padding: 20px 30px !important; /* 增加按鈕內部的上下左右空間 */
-        background-color: #f7fafc !important; /* 預設淡灰色背景 */
+        margin-right: 40px !important; /* 雙重保險：強制拉開右側距離 */
+        padding: 15px 25px !important;
+        background-color: #f7fafc !important;
         border-radius: 16px 16px 0 0 !important;
         border: 2px solid #e2e8f0 !important;
         border-bottom: none !important;
     }
-    
-    /* 🌟 強制放大分頁文字到 45px */
-    div[data-testid="stTabs"] button[data-baseweb="tab"] p,
-    div[data-testid="stTabs"] button[data-baseweb="tab"] span,
-    div[data-testid="stTabs"] button[data-baseweb="tab"] div {
-        font-size: 45px !important; /* 文字大小 45px */
-        font-weight: 900 !important; /* 最粗體 */
-        color: #2d3748 !important; /* 深灰色 */
-        line-height: 1.5 !important;
+
+    /* 🌟 使用萬用字元 (*) 絕對強制放大文字到 45px */
+    div[data-testid="stTabs"] button[data-baseweb="tab"] * {
+        font-size: 45px !important;
+        font-weight: 900 !important;
+        line-height: 1.6 !important;
+        color: #4a5568 !important;
     }
 
-    /* 被選中時的分頁按鈕樣式 */
+    /* 被選中時的分頁按鈕文字顏色 */
     div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
-        background-color: #ebf8ff !important; /* 淺藍色背景 */
-        border-top: 8px solid #3182ce !important; /* 頂部粗藍線 */
+        background-color: #ebf8ff !important;
+        border-top: 8px solid #3182ce !important;
     }
-    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] p,
-    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] span {
-        color: #2b6cb0 !important; /* 藍色文字 */
+    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] * {
+        color: #2b6cb0 !important; /* 點選後變為藍色 */
     }
 
     /* 大標題與副標題 */
@@ -327,12 +331,12 @@ def delete_order(order_id):
 st.title("🌾 有其田 客服管理系統 (CRM - 雲端版)")
 
 tab1, tab2, tab3, tab4, tab6, tab5 = st.tabs([
-    "🔍 舊客戶速查與編輯", 
-    "🆕 建立全新會員名單", 
-    "👤 客戶詳細歷程與時間軸", 
+    "🔍 舊客速查與編輯", 
+    "🆕 建立新名單", 
+    "👤 歷程與時間軸", 
     "📊 客戶名冊總表",
-    "📅 期間訂單報表與匯出",
-    "📥 批次匯入舊名單"
+    "📅 報表與匯出",
+    "📥 匯入舊名單"
 ])
 
 # ==========================================
@@ -532,9 +536,9 @@ with tab2:
             else:
                 now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 res = execute_query("""
-                    INSERT INTO customers (customer_code, name, gender, id_card, phone, phone_backup, tel, email, 
+                    INSERT INTO customers (customer_id, customer_code, name, gender, id_card, phone, phone_backup, tel, email, 
                                            address, recipient2_name, recipient2_phone, recipient2_address, dietary_preference, created_at)
-                    VALUES (:code, :name, :gender, :id_card, :phone, :phone_bak, :tel, :email, 
+                    VALUES (DEFAULT, :code, :name, :gender, :id_card, :phone, :phone_bak, :tel, :email, 
                             :addr, :r2_name, :r2_phone, :r2_addr, :pref, :created_at)
                     RETURNING customer_id
                 """, {

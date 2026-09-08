@@ -690,10 +690,10 @@ with tab4:
         st.info("尚無客戶資料。")
 
 # ==========================================
-# TAB 5: 批次匯入舊名單 (真正單一指令秒級全量寫入版)
+# TAB 5: 批次匯入舊名單 (超穩定安全微批次版)
 # ==========================================
 with tab5:
-    st.subheader("📥 匯入 Excel 名單（極速全量注入 Supabase 雲端資料庫）")
+    st.subheader("📥 匯入 Excel 名單（極速微批次注入 Supabase 雲端資料庫）")
     uploaded_file = st.file_uploader("上傳 Excel 檔案（.xlsx）", type=["xlsx", "xls"])
 
     if uploaded_file is not None:
@@ -702,7 +702,7 @@ with tab5:
             st.write(f"📂 偵測到工作表：`{', '.join(excel_file.sheet_names)}`")
             
             if st.button("🚀 確認並開始極速全量匯入"):
-                bar = st.progress(10)
+                bar = st.progress(5)
                 status = st.empty()
 
                 status.text("⏳ [1/4] 正在拉取雲端既有客戶對照表...")
@@ -719,8 +719,8 @@ with tab5:
                 existing_orders_df = read_query("SELECT customer_id, raw_date_code FROM orders WHERE raw_date_code != ''")
                 existing_order_set = set(zip(existing_orders_df['customer_id'].astype(int), existing_orders_df['raw_date_code'].astype(str)))
 
-                bar.progress(30)
-                status.text("⏳ [2/4] 正在本機極速解析所有客戶與購買軌跡...")
+                bar.progress(25)
+                status.text("⏳ [2/4] 正在本機解析所有客戶與購買軌跡...")
 
                 now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 cust_updates = []
@@ -750,7 +750,6 @@ with tab5:
                         elif p1 and p1 in phone_to_id:
                             matched_cid = phone_to_id[p1]
 
-                        # 整理購買代碼
                         row_orders = []
                         for col_name, val in row.items():
                             if pd.notna(val) and str(val).strip() != "":
@@ -773,63 +772,60 @@ with tab5:
                                     })
                                     existing_order_set.add((matched_cid, r_code))
                         else:
-                            # 暫存新客戶資訊（帶有其專屬訂單清單）
                             cust_inserts.append({
                                 "code": cust_code, "name": name, "gender": gender, "id_card": id_card,
                                 "phone": p1, "phone_bak": p2, "tel": t1, "addr": addr, "created_at": now_str,
                                 "_orders": row_orders
                             })
 
-                bar.progress(60)
-                status.text(f"⏳ [3/4] 正在單一指令批次寫入 {len(cust_inserts)} 位新客戶與更新 {len(cust_updates)} 筆...")
+                bar.progress(50)
+                status.text(f"⏳ [3/4] 正在安全寫入 {len(cust_inserts)} 位新客與更新 {len(cust_updates)} 筆舊客...")
 
                 engine = get_db_engine()
                 with engine.connect() as conn:
-                    with conn.begin():
-                        # 1. 批次更新
-                        if cust_updates:
-                            conn.execute(text("""
-                                UPDATE customers 
-                                SET customer_code = :code, name = :name, phone_backup = :p2, 
-                                    tel = :t1, address = :addr, gender = :gender, id_card = :id_card
-                                WHERE customer_id = :cid
-                            """), cust_updates)
+                    # 解除執行時間逾時限制
+                    conn.execute(text("SET statement_timeout = 0;"))
+                    conn.commit()
 
-                        # 2. 單一指令全量 INSERT 所有新客戶並批次取回所有 ID (極速關鍵)
-                        if cust_inserts:
-                            # 建立參數陣列
-                            insert_records = []
-                            for idx, c in enumerate(cust_inserts):
-                                insert_records.append({
-                                    f"c{idx}": c["code"], f"n{idx}": c["name"], f"g{idx}": c["gender"],
-                                    f"i{idx}": c["id_card"], f"p{idx}": c["phone"], f"pb{idx}": c["phone_bak"],
-                                    f"t{idx}": c["tel"], f"a{idx}": c["addr"], f"cr{idx}": c["created_at"]
-                                })
-                            
-                            # 分每 500 筆一組 multi-row insert 避免 SQL 長度限制
-                            CHUNK_SIZE = 400
-                            for start_idx in range(0, len(cust_inserts), CHUNK_SIZE):
-                                chunk = cust_inserts[start_idx:start_idx + CHUNK_SIZE]
-                                val_clauses = []
-                                chunk_params = {}
-                                for i, c in enumerate(chunk):
-                                    k = f"_{i}"
-                                    val_clauses.append(f"(:c{k}, :n{k}, :g{k}, :i{k}, :p{k}, :pb{k}, :t{k}, :a{k}, :cr{k})")
-                                    chunk_params[f"c{k}"] = c["code"]
-                                    chunk_params[f"n{k}"] = c["name"]
-                                    chunk_params[f"g{k}"] = c["gender"]
-                                    chunk_params[f"i{k}"] = c["id_card"]
-                                    chunk_params[f"p{k}"] = c["phone"]
-                                    chunk_params[f"pb{k}"] = c["phone_bak"]
-                                    chunk_params[f"t{k}"] = c["tel"]
-                                    chunk_params[f"a{k}"] = c["addr"]
-                                    chunk_params[f"cr{k}"] = c["created_at"]
+                    # 1. 舊客戶批次更新 (每 100 筆 commit 一次)
+                    if cust_updates:
+                        UP_CHUNK = 100
+                        for u_idx in range(0, len(cust_updates), UP_CHUNK):
+                            u_chunk = cust_updates[u_idx:u_idx + UP_CHUNK]
+                            with conn.begin():
+                                conn.execute(text("""
+                                    UPDATE customers 
+                                    SET customer_code = :code, name = :name, phone_backup = :p2, 
+                                        tel = :t1, address = :addr, gender = :gender, id_card = :id_card
+                                    WHERE customer_id = :cid
+                                """), u_chunk)
 
-                                sql_multi = f"""
-                                    INSERT INTO customers (customer_code, name, gender, id_card, phone, phone_backup, tel, address, created_at)
-                                    VALUES {', '.join(val_clauses)}
-                                    RETURNING customer_id
-                                """
+                    # 2. 新客戶批次插入 (每 150 筆一組 multi-row insert)
+                    if cust_inserts:
+                        CHUNK_SIZE = 150
+                        for start_idx in range(0, len(cust_inserts), CHUNK_SIZE):
+                            chunk = cust_inserts[start_idx:start_idx + CHUNK_SIZE]
+                            val_clauses = []
+                            chunk_params = {}
+                            for i, c in enumerate(chunk):
+                                k = f"_{i}"
+                                val_clauses.append(f"(:c{k}, :n{k}, :g{k}, :i{k}, :p{k}, :pb{k}, :t{k}, :a{k}, :cr{k})")
+                                chunk_params[f"c{k}"] = c["code"]
+                                chunk_params[f"n{k}"] = c["name"]
+                                chunk_params[f"g{k}"] = c["gender"]
+                                chunk_params[f"i{k}"] = c["id_card"]
+                                chunk_params[f"p{k}"] = c["phone"]
+                                chunk_params[f"pb{k}"] = c["phone_bak"]
+                                chunk_params[f"t{k}"] = c["tel"]
+                                chunk_params[f"a{k}"] = c["addr"]
+                                chunk_params[f"cr{k}"] = c["created_at"]
+
+                            sql_multi = f"""
+                                INSERT INTO customers (customer_code, name, gender, id_card, phone, phone_backup, tel, address, created_at)
+                                VALUES {', '.join(val_clauses)}
+                                RETURNING customer_id
+                            """
+                            with conn.begin():
                                 res_ids = conn.execute(text(sql_multi), chunk_params).fetchall()
                                 for c_obj, r_id in zip(chunk, res_ids):
                                     new_id = r_id[0]
@@ -839,14 +835,15 @@ with tab5:
                                             "odate": o_date, "code": r_code, "status": "歷史完成", "notes": f"原始代碼: {r_code}"
                                         })
 
-                        bar.progress(85)
-                        status.text(f"⏳ [4/4] 正在整批寫入 {len(order_tasks)} 筆訂單軌跡...")
+                    bar.progress(85)
+                    status.text(f"⏳ [4/4] 正在整批注入 {len(order_tasks)} 筆訂單軌跡...")
 
-                        # 3. 訂單分批大區塊寫入
-                        if order_tasks:
-                            ORDER_CHUNK = 1000
-                            for o_idx in range(0, len(order_tasks), ORDER_CHUNK):
-                                o_chunk = order_tasks[o_idx:o_idx + ORDER_CHUNK]
+                    # 3. 訂單分批寫入 (每 300 筆 commit 一次)
+                    if order_tasks:
+                        ORDER_CHUNK = 300
+                        for o_idx in range(0, len(order_tasks), ORDER_CHUNK):
+                            o_chunk = order_tasks[o_idx:o_idx + ORDER_CHUNK]
+                            with conn.begin():
                                 conn.execute(text("""
                                     INSERT INTO orders (customer_id, channel, product, amount, order_date, raw_date_code, status, order_notes)
                                     VALUES (:cid, :chan, :prod, :amt, :odate, :code, :status, :notes)
@@ -854,6 +851,6 @@ with tab5:
 
                 bar.progress(100)
                 status.empty()
-                st.success(f"🎉 極速匯入大成功！全新建檔 **{len(cust_inserts)}** 位會員、更新補齊 **{len(cust_updates)}** 位客戶，並成功注入 **{len(order_tasks)}** 筆購買軌跡！")
+                st.success(f"🎉 雲端匯入大成功！全新建檔 **{len(cust_inserts)}** 位會員、更新補齊 **{len(cust_updates)}** 位客戶，並成功注入 **{len(order_tasks)}** 筆購買軌跡！")
         except Exception as e:
             st.error(f"匯入錯誤：{e}")

@@ -8,12 +8,21 @@ import re
 # --- 1. 雲端資料庫連線 (Supabase PostgreSQL) ---
 @st.cache_resource
 def get_db_engine():
-    # 連線字串會安全存放在 Streamlit Secrets 中
     db_url = st.secrets["SUPABASE_DB_URL"]
-    # 修正 postgresql:// 前綴兼容性
     if db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql://", 1)
-    return create_engine(db_url, pool_pre_ping=True)
+    
+    # 確保連線帶有 SSL 模式
+    connect_args = {}
+    if "sslmode" not in db_url:
+        connect_args["sslmode"] = "require"
+
+    return create_engine(
+        db_url,
+        pool_pre_ping=True,
+        pool_recycle=300,
+        connect_args=connect_args
+    )
 
 def execute_query(query, params=None):
     engine = get_db_engine()

@@ -1,11 +1,11 @@
 import streamlit as st
 import pandas as pd
 from sqlalchemy import create_engine, text
-from datetime import datetime
+from datetime import datetime, date, timedelta
 import io
 import re
 
-# --- 0. 設定頁面配置與「超大字體 & 大按鈕 & 大格子」旗艦 CSS ---
+# --- 0. 設定頁面配置與「終極放大」CSS ---
 st.set_page_config(page_title="有其田 客服 CRM 系統", layout="wide", page_icon="🌾")
 
 st.markdown("""
@@ -18,92 +18,97 @@ st.markdown("""
 
     /* 最上方分頁按鈕 (Tabs) 專屬超大字體與加大間距 */
     button[data-baseweb="tab"] {
-        font-size: 26px !important;
-        font-weight: 800 !important;
-        padding: 16px 28px !important;
-        margin-right: 12px !important;
-        line-height: 1.5 !important;
+        padding: 16px 24px !important;
+        margin-right: 8px !important;
+        background-color: #f7fafc !important;
+        border-radius: 12px 12px 0 0 !important;
+        border: 1px solid #e2e8f0 !important;
+        border-bottom: none !important;
     }
     button[data-baseweb="tab"] p {
         font-size: 26px !important;
-        font-weight: 800 !important;
-    }
-
-    /* 大標題與副標題 */
-    h1 {
-        font-size: 42px !important;
         font-weight: 900 !important;
-        margin-bottom: 24px !important;
+        color: #2d3748 !important;
     }
-    h2, h3 {
-        font-size: 32px !important;
-        font-weight: 800 !important;
-        margin-top: 20px !important;
-        margin-bottom: 16px !important;
+    button[data-baseweb="tab"][aria-selected="true"] {
+        background-color: #ebf8ff !important;
+        border-top: 4px solid #3182ce !important;
     }
-    h4, h5 {
-        font-size: 26px !important;
-        font-weight: 700 !important;
-        margin-top: 16px !important;
+    button[data-baseweb="tab"][aria-selected="true"] p {
         color: #2b6cb0 !important;
     }
 
+    /* 大標題與副標題 */
+    h1 { font-size: 42px !important; font-weight: 900 !important; margin-bottom: 24px !important; }
+    h2, h3 { font-size: 34px !important; font-weight: 800 !important; margin-top: 20px !important; margin-bottom: 16px !important; }
+    h4, h5 { font-size: 28px !important; font-weight: 700 !important; margin-top: 16px !important; color: #2b6cb0 !important; }
+
     /* 輸入欄位標籤文字 (Label) */
     label, label p, [data-testid="stWidgetLabel"] p {
-        font-size: 25px !important;
-        font-weight: 800 !important;
+        font-size: 26px !important;
+        font-weight: 900 !important;
         color: #1a1a1a !important;
-        margin-bottom: 10px !important;
+        margin-bottom: 12px !important;
     }
 
-    /* 所有輸入框、密碼框、數字框、下拉選單格子全體加高加大 */
-    input[type="text"], input[type="password"], input[type="number"], select, textarea, div[data-baseweb="select"] > div {
-        font-size: 24px !important;
-        min-height: 64px !important;
+    /* 所有輸入框、下拉選單格子「極致加高加大」 */
+    input[type="text"], input[type="password"], input[type="number"], select, div[data-baseweb="select"] > div {
+        font-size: 26px !important;
+        min-height: 70px !important;
         border-radius: 12px !important;
-        border: 2px solid #888888 !important;
-        padding: 10px 18px !important;
+        border: 2px solid #718096 !important;
+        padding: 12px 20px !important;
         background-color: #ffffff !important;
-        font-weight: 600 !important;
+        font-weight: 700 !important;
+        color: #1a202c !important;
     }
     
+    /* 日期選擇器專屬高度 */
+    div[data-baseweb="input"] {
+        min-height: 70px !important;
+    }
+
     /* 下拉選單內部選項字體 */
     div[data-baseweb="select"] span {
-        font-size: 24px !important;
-        font-weight: 600 !important;
+        font-size: 26px !important;
+        font-weight: 700 !important;
     }
 
     /* 多行備註文字框加大 */
     textarea {
-        min-height: 120px !important;
+        font-size: 26px !important;
+        min-height: 140px !important;
         line-height: 1.6 !important;
+        border: 2px solid #718096 !important;
     }
 
     /* 表單按鈕加大 */
     .stButton > button {
-        min-height: 68px !important;
-        font-size: 26px !important;
+        min-height: 72px !important;
+        font-size: 28px !important;
         font-weight: 900 !important;
         border-radius: 12px !important;
-        padding: 0 32px !important;
+        padding: 0 40px !important;
         margin-top: 14px !important;
+        border: 2px solid #3182ce !important;
     }
 
     /* 關鍵數據指標卡片 (Metrics) */
     [data-testid="stMetricValue"] {
-        font-size: 40px !important;
+        font-size: 46px !important;
         font-weight: 900 !important;
         color: #2b6cb0 !important;
     }
     [data-testid="stMetricLabel"] p {
-        font-size: 24px !important;
-        font-weight: 700 !important;
+        font-size: 26px !important;
+        font-weight: 800 !important;
     }
 
     /* 展開摺疊面板 (Expander) 標題加大 */
     details summary p, details summary span {
-        font-size: 25px !important;
+        font-size: 26px !important;
         font-weight: 800 !important;
+        color: #2c5282 !important;
     }
 
     /* 表格字體放大 */
@@ -111,14 +116,8 @@ st.markdown("""
         font-size: 22px !important;
     }
 
-    div[data-testid="column"] {
-        padding: 0 16px !important;
-    }
-    hr {
-        margin: 32px 0 !important;
-        border: 0 !important;
-        border-top: 2.5px solid #d0d0d0 !important;
-    }
+    div[data-testid="column"] { padding: 0 16px !important; }
+    hr { margin: 36px 0 !important; border: 0 !important; border-top: 3px solid #cbd5e0 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -316,14 +315,15 @@ def update_customer_db(cid, code, name, gender, id_card, phone, phone_bak, tel, 
 def delete_order(order_id):
     execute_query("DELETE FROM orders WHERE order_id = :oid", {"oid": order_id})
 
-# --- 4. 主介面排版 ---
+# --- 4. 主介面排版 (新增第六個分頁) ---
 st.title("🌾 有其田 客服管理系統 (CRM - 雲端版)")
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab6, tab5 = st.tabs([
     "🔍 舊客戶速查與編輯", 
     "🆕 建立全新會員名單", 
     "👤 客戶詳細歷程與時間軸", 
     "📊 客戶名冊總表",
+    "📅 期間訂單報表與匯出",
     "📥 批次匯入舊名單"
 ])
 
@@ -747,7 +747,61 @@ with tab4:
         st.info("尚無客戶資料。")
 
 # ==========================================
-# TAB 5: 批次匯入舊名單 (兩段式秒級終極極速版)
+# TAB 6: 期間訂單報表與匯出 (全新功能)
+# ==========================================
+with tab6:
+    st.subheader("📅 期間訂單紀錄撈取與報表匯出")
+    st.markdown("請選擇您要查詢的日期區間（以訂單建立日期為準）：")
+
+    col_d1, col_d2 = st.columns(2)
+    with col_d1:
+        start_date = st.date_input("起始日期", value=date.today().replace(day=1))
+    with col_d2:
+        end_date = st.date_input("結束日期", value=date.today())
+
+    if st.button("📊 產生期間報表"):
+        if start_date > end_date:
+            st.error("起始日期不能大於結束日期，請重新選擇！")
+        else:
+            report_sql = """
+                SELECT 
+                    o.order_date AS "訂購日期",
+                    c.customer_code AS "客戶代號",
+                    c.name AS "客戶姓名",
+                    c.phone AS "手機號碼",
+                    o.product AS "商品名稱",
+                    o.amount AS "訂單金額",
+                    o.channel AS "購買管道",
+                    o.status AS "訂單狀態",
+                    o.order_notes AS "訂單備註"
+                FROM orders o
+                JOIN customers c ON o.customer_id = c.customer_id
+                WHERE o.order_date >= :s_date AND o.order_date <= :e_date
+                ORDER BY o.order_date DESC, o.order_id DESC
+            """
+            
+            report_df = read_query(report_sql, {"s_date": str(start_date), "e_date": str(end_date)})
+
+            if report_df.empty:
+                st.warning(f"⚠️ 在 {start_date} 至 {end_date} 期間內，沒有找到任何訂單紀錄。")
+            else:
+                total_amount = report_df["訂單金額"].sum()
+                st.success(f"✅ 成功撈取 **{len(report_df)}** 筆訂單紀錄！此區間累積金額為：**NT$ {total_amount:,}**")
+                
+                # 顯示報表預覽
+                st.dataframe(report_df, use_container_width=True)
+
+                # 下載按鈕
+                csv_data = report_df.to_csv(index=False).encode('utf-8-sig')
+                st.download_button(
+                    label=f"📥 下載 {start_date} 至 {end_date} 訂單明細 (CSV)",
+                    data=csv_data,
+                    file_name=f"有其田_期間訂單報表_{start_date}至{end_date}.csv",
+                    mime="text/csv"
+                )
+
+# ==========================================
+# TAB 5: 批次匯入舊名單
 # ==========================================
 with tab5:
     st.subheader("📥 匯入 Excel 名單（兩段式秒級終極匯入）")

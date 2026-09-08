@@ -23,30 +23,34 @@ st.markdown("""
         margin-bottom: 30px !important;
     }
 
-    /* 🌟 針對 Streamlit 分頁按鈕本身加大間距與框線 */
+    /* 🌟 按鈕外觀與高度 (解除高度限制，確保 45px 字體放得下) */
     div[data-testid="stTabs"] button[data-baseweb="tab"] {
-        margin-right: 40px !important; /* 雙重保險：強制拉開右側距離 */
-        padding: 15px 25px !important;
+        margin-right: 20px !important;
+        padding: 15px 30px !important;
         background-color: #f7fafc !important;
         border-radius: 16px 16px 0 0 !important;
         border: 2px solid #e2e8f0 !important;
         border-bottom: none !important;
+        height: auto !important;      /* 解除高度限制 */
+        min-height: 85px !important;  /* 保證按鈕夠高 */
     }
 
-    /* 🌟 使用萬用字元 (*) 絕對強制放大文字到 45px */
-    div[data-testid="stTabs"] button[data-baseweb="tab"] * {
-        font-size: 45px !important;
-        font-weight: 900 !important;
-        line-height: 1.6 !important;
+    /* 🌟 終極穿透：指定內部文字 p 標籤強制放大至 45px */
+    div[data-testid="stTabs"] button[data-baseweb="tab"] p {
+        font-size: 45px !important; /* 絕對放大至 45px */
+        font-weight: 900 !important; /* 最粗體 */
+        line-height: 1.2 !important;
         color: #4a5568 !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
 
-    /* 被選中時的分頁按鈕文字顏色 */
+    /* 被選中時的分頁按鈕樣式 */
     div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
         background-color: #ebf8ff !important;
         border-top: 8px solid #3182ce !important;
     }
-    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] * {
+    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] p {
         color: #2b6cb0 !important; /* 點選後變為藍色 */
     }
 

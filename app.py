@@ -5,7 +5,7 @@ from datetime import datetime, date, timedelta
 import io
 import re
 
-# --- 0. 設定頁面配置與「精準打擊 45px」CSS ---
+# --- 0. 設定頁面配置與「最高權限強制放大」CSS ---
 st.set_page_config(page_title="有其田 客服 CRM 系統", layout="wide", page_icon="🌾")
 
 st.markdown("""
@@ -17,37 +17,49 @@ st.markdown("""
     }
 
     /* =========================================
-       🔥 針對 Streamlit 分頁標籤的精準覆寫 
+       🔥 最終決戰：針對 Streamlit 分頁的核彈級覆寫
        ========================================= */
-    /* 1. 拉開按鈕之間的距離，並解除高度限制 */
-    div[data-testid="stTabs"] button[data-baseweb="tab"] {
-        margin-right: 40px !important; 
-        min-height: 90px !important; 
+    /* 1. 暴力撐大按鈕體積與間距 */
+    html body div[data-testid="stTabs"] > div > div[role="tablist"] {
+        gap: 40px !important; 
+        margin-bottom: 20px !important;
+    }
+    
+    html body div[data-testid="stTabs"] button[role="tab"],
+    html body div[data-testid="stTabs"] button[data-baseweb="tab"] {
+        margin-right: 30px !important;
+        min-height: 110px !important; /* 絕對加高，避免 45px 字體被切斷 */
         height: auto !important;
-        padding: 10px 20px !important;
+        padding: 15px 30px !important;
         background-color: #f7fafc !important;
+        border-radius: 16px 16px 0 0 !important;
         border: 2px solid #e2e8f0 !important;
         border-bottom: none !important;
-        border-radius: 12px 12px 0 0 !important;
     }
 
-    /* 2. 精準鎖定隱藏的 <p> 標籤，絕對放大到 45px 粗體 */
-    div[data-testid="stTabs"] button[data-baseweb="tab"] p {
-        font-size: 45px !important;
-        font-weight: 900 !important;
+    /* 2. 最高優先權鎖定文字大小 (直接點名 html body 裡面的 p 標籤) */
+    html body div[data-testid="stTabs"] button[role="tab"] p,
+    html body div[data-testid="stTabs"] button[data-baseweb="tab"] p,
+    html body div[data-testid="stTabs"] button[role="tab"] span,
+    html body div[data-testid="stTabs"] button[role="tab"] div[data-testid="stMarkdownContainer"],
+    html body div[data-testid="stTabs"] button[role="tab"] div[data-testid="stMarkdownContainer"] > p {
+        font-size: 45px !important;   /* 絕對強制放大到 45px */
+        font-weight: 900 !important;  /* 絕對最粗體 */
         color: #4a5568 !important;
-        line-height: 1.3 !important;
+        line-height: 1.5 !important;
         margin: 0 !important;
         padding: 0 !important;
+        white-space: nowrap !important; /* 保證不折行 */
     }
 
     /* 3. 被選中時的樣式 (紅線 + 紅字) */
-    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
-        border-top: 8px solid #e53e3e !important;
+    html body div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+        border-top: 8px solid #e53e3e !important; 
         background-color: #fff5f5 !important;
     }
-    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] p {
-        color: #e53e3e !important; 
+    html body div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] p,
+    html body div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] span {
+        color: #e53e3e !important;
     }
     /* ========================================= */
 

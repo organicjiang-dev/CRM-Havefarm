@@ -728,7 +728,7 @@ with tab5:
 
                 now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 cust_inserts = []
-                order_tasks = []  # [(cust_code_or_id, is_new_cust, channel, date, raw_code)]
+                order_tasks = []
 
                 for sheet_name in excel_file.sheet_names:
                     df = pd.read_excel(uploaded_file, sheet_name=sheet_name, dtype=str)
@@ -747,7 +747,6 @@ with tab5:
                         if not name or (not p1 and not t1 and not cust_code):
                             continue
 
-                        # 整理購買紀錄
                         row_orders = []
                         for col_name, val in row.items():
                             if pd.notna(val) and str(val).strip() != "":
@@ -777,7 +776,6 @@ with tab5:
                                 "customer_code": cust_code, "name": name, "gender": gender, "id_card": id_card,
                                 "phone": p1, "phone_backup": p2, "tel": t1, "address": addr, "created_at": now_str
                             })
-                            # 將本筆標記至代號索引
                             if p1:
                                 phone_to_id[p1] = cust_code
                             code_to_id[cust_code] = cust_code
@@ -789,7 +787,6 @@ with tab5:
                 status.info(f"⚡ [2/3] 正在極速寫入 {len(cust_inserts)} 位新客戶...")
 
                 engine = get_db_engine()
-                # 1. 寫入新客戶 (使用 Pandas to_sql 極速通道)
                 if cust_inserts:
                     new_cust_df = pd.DataFrame(cust_inserts)
                     new_cust_df.to_sql("customers", engine, if_exists="append", index=False, method="multi", chunksize=500)
@@ -797,13 +794,26 @@ with tab5:
                 bar.progress(80)
                 status.info(f"⚡ [3/3] 正在整批連結並寫入 {len(order_tasks)} 筆訂單軌跡...")
 
-                # 2. 刷新取得所有 customer_code 對應的最新 customer_id
-                fresh_cust_df = read_query("SELECT customer_id, customer_code FROM customers")
-                code_map = dict(zip(fresh_cust_df['customer_code'], fresh_cust_df['customer_id']))
+                fresh_cust_df = read_query("SELECT customer_id, customer_code, phone FROM customers")
+                code_map = {}
+                phone_map = {}
+                for _, r in fresh_cust_df.iterrows():
+                    cid = int(r['customer_id'])
+                    if pd.notna(r['customer_code']) and str(r['customer_code']).strip():
+                        code_map[str(r['customer_code']).strip()] = cid
+                    if pd.notna(r['phone']) and str(r['phone']).strip():
+                        phone_map[str(r['phone']).strip()] = cid
 
                 final_orders = []
                 for target_ref, is_new, o_chan, o_date, r_code in order_tasks:
-                    final_cid = code_map.get(target_ref) if is_new else target_ref
+                    final_cid = None
+                    if isinstance(target_ref, int):
+                        final_cid = target_ref
+                    elif str(target_ref) in code_map:
+                        final_cid = code_map[str(target_ref)]
+                    elif str(target_ref) in phone_map:
+                        final_cid = phone_map[str(target_ref)]
+
                     if final_cid:
                         final_orders.append({
                             "customer_id": int(final_cid),
@@ -818,10 +828,11 @@ with tab5:
 
                 if final_orders:
                     orders_df = pd.DataFrame(final_orders)
+                    orders_df = orders_df.drop_duplicates(subset=["customer_id", "raw_date_code"])
                     orders_df.to_sql("orders", engine, if_exists="append", index=False, method="multi", chunksize=1000)
 
                 bar.progress(100)
                 status.empty()
-                st.success(f"🎉 3 秒極速匯入大成功！成功建檔 **{len(cust_inserts)}** 位會員，並成功寫入 **{len(final_orders)}** 筆購買軌跡！")
+                st.success(f"🎉 極速匯入大成功！成功建檔 **{len(cust_inserts)}** 位會員，並完整寫入 **{len(final_orders)}** 筆購買軌跡！")
         except Exception as e:
             st.error(f"匯入錯誤：{e}")

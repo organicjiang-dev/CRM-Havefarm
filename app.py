@@ -1,12 +1,11 @@
 import streamlit as st
-import streamlit.components.v1 as components  # 新增 JS 注入套件
 import pandas as pd
 from sqlalchemy import create_engine, text
 from datetime import datetime, date, timedelta
 import io
 import re
 
-# --- 0. 設定頁面配置與基本大字體 CSS ---
+# --- 0. 設定頁面配置與「最高優先權」CSS ---
 st.set_page_config(page_title="有其田 客服 CRM 系統", layout="wide", page_icon="🌾")
 
 st.markdown("""
@@ -16,6 +15,55 @@ st.markdown("""
         font-size: 24px !important;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif !important;
     }
+
+    /* =========================================
+       🔥 終極大絕招：屬性疊加 (Attribute Chaining) 🔥
+       利用重複寫 [role="tab"] 三次，將 CSS 優先權提升到極致，
+       直接粉碎 Streamlit 內建的所有字體限制！
+       ========================================= */
+
+    /* 1. 暴力撐大按鈕體積與拉開間距 */
+    button[role="tab"][role="tab"][role="tab"] {
+        min-height: 110px !important;
+        height: auto !important;
+        margin-right: 40px !important; /* 強制拉開右側距離 */
+        padding: 15px 30px !important;
+        background-color: #f7fafc !important;
+        border-radius: 16px 16px 0 0 !important;
+        border: 2px solid #e2e8f0 !important;
+        border-bottom: none !important;
+    }
+
+    /* 2. 最高優先權鎖定文字大小 (包含裡面的 p, span, div) */
+    button[role="tab"][role="tab"][role="tab"] p,
+    button[role="tab"][role="tab"][role="tab"] span,
+    button[role="tab"][role="tab"][role="tab"] div {
+        font-size: 45px !important;   /* 🌟 絕對強制放大到 45px 🌟 */
+        font-weight: 900 !important;  /* 絕對最粗體 */
+        color: #4a5568 !important;
+        line-height: 1.5 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        white-space: nowrap !important; /* 保證 45px 的字不會被擠到換行 */
+    }
+
+    /* 3. 被選中時的樣式 (紅線 + 紅字) */
+    button[role="tab"][role="tab"][role="tab"][aria-selected="true"] {
+        border-top: 8px solid #e53e3e !important; 
+        background-color: #fff5f5 !important;
+    }
+    button[role="tab"][role="tab"][role="tab"][aria-selected="true"] p,
+    button[role="tab"][role="tab"][role="tab"][aria-selected="true"] span {
+        color: #e53e3e !important; /* 點選時文字變紅色 */
+    }
+
+    /* 4. 拉開外層容器的距離 */
+    div[role="tablist"][role="tablist"][role="tablist"] {
+        gap: 50px !important; /* 確保按鈕之間有巨大的空隙 */
+        margin-bottom: 20px !important;
+    }
+    /* ========================================= */
+
 
     /* 大標題與副標題 */
     h1 { font-size: 45px !important; font-weight: 900 !important; margin-bottom: 24px !important; }
@@ -924,54 +972,3 @@ with tab5:
                 st.success(f"🎉 極速匯入大成功！成功建檔 **{len(cust_inserts)}** 位會員，並完整寫入 **{len(final_orders)}** 筆購買軌跡！")
         except Exception as e:
             st.error(f"匯入錯誤：{e}")
-
-
-# ==========================================
-# 🔥 終極殺手鐧：JavaScript 強制穿透 DOM 腳本
-# (放置於程式碼最底端，確保在畫面渲染後執行)
-# ==========================================
-components.html(
-    """
-    <script>
-    function enforceGiantTabs() {
-        // 從 iframe 穿透到 Streamlit 主視窗
-        const parentDoc = window.parent.document;
-        
-        // 找到所有的分頁按鈕
-        const tabs = parentDoc.querySelectorAll('button[data-baseweb="tab"]');
-        
-        if(tabs.length > 0) {
-            tabs.forEach(tab => {
-                // 強制拉開距離 50px、加高按鈕
-                tab.style.setProperty('margin-right', '50px', 'important');
-                tab.style.setProperty('padding', '20px 30px', 'important');
-                tab.style.setProperty('min-height', '95px', 'important');
-                tab.style.setProperty('height', 'auto', 'important');
-                tab.style.setProperty('border-radius', '16px 16px 0 0', 'important');
-                
-                // 找出按鈕裡面深藏的所有文字，通通暴力放大到 45px
-                const texts = tab.querySelectorAll('p, span, div');
-                texts.forEach(t => {
-                    t.style.setProperty('font-size', '45px', 'important');
-                    t.style.setProperty('font-weight', '900', 'important');
-                });
-            });
-
-            // 確保外層容器也有撐開距離
-            const tabLists = parentDoc.querySelectorAll('div[data-baseweb="tab-list"], div[role="tablist"]');
-            tabLists.forEach(list => {
-                list.style.setProperty('gap', '50px', 'important');
-            });
-        }
-    }
-
-    // 啟動多重保險：在網頁載入的各個階段反覆執行，確保蓋掉 Streamlit 官方設定
-    setTimeout(enforceGiantTabs, 100);
-    setTimeout(enforceGiantTabs, 500);
-    setTimeout(enforceGiantTabs, 1000);
-    setInterval(enforceGiantTabs, 2000);
-    </script>
-    """,
-    height=0,
-    width=0
-)

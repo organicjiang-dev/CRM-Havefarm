@@ -16,25 +16,30 @@ st.markdown("""
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif !important;
     }
 
-    /* 最上方分頁按鈕 (Tabs) 專屬超大字體與加大間距 */
+    /* 最上方分頁按鈕 (Tabs) 專屬 40px 超大字體與加大間距 */
+    div[role="tablist"] {
+        gap: 25px !important; /* 強制拉開按鈕之間的距離 */
+        margin-bottom: 20px !important;
+    }
     button[data-baseweb="tab"] {
-        padding: 16px 24px !important;
-        margin-right: 8px !important;
+        padding: 20px 30px !important;
+        margin-right: 20px !important; /* 備用拉開距離 */
         background-color: #f7fafc !important;
-        border-radius: 12px 12px 0 0 !important;
-        border: 1px solid #e2e8f0 !important;
+        border-radius: 16px 16px 0 0 !important;
+        border: 2px solid #e2e8f0 !important;
         border-bottom: none !important;
     }
-    button[data-baseweb="tab"] p {
-        font-size: 26px !important;
+    button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {
+        font-size: 40px !important; /* 字體強制放大至 40px */
         font-weight: 900 !important;
+        line-height: 1.5 !important;
         color: #2d3748 !important;
     }
     button[data-baseweb="tab"][aria-selected="true"] {
         background-color: #ebf8ff !important;
-        border-top: 4px solid #3182ce !important;
+        border-top: 6px solid #3182ce !important;
     }
-    button[data-baseweb="tab"][aria-selected="true"] p {
+    button[data-baseweb="tab"][aria-selected="true"] p, button[data-baseweb="tab"][aria-selected="true"] span {
         color: #2b6cb0 !important;
     }
 
@@ -315,7 +320,7 @@ def update_customer_db(cid, code, name, gender, id_card, phone, phone_bak, tel, 
 def delete_order(order_id):
     execute_query("DELETE FROM orders WHERE order_id = :oid", {"oid": order_id})
 
-# --- 4. 主介面排版 (新增第六個分頁) ---
+# --- 4. 主介面排版 (包含第六個報表匯出分頁) ---
 st.title("🌾 有其田 客服管理系統 (CRM - 雲端版)")
 
 tab1, tab2, tab3, tab4, tab6, tab5 = st.tabs([

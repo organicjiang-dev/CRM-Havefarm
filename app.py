@@ -690,10 +690,10 @@ with tab4:
         st.info("尚無客戶資料。")
 
 # ==========================================
-# TAB 5: 批次匯入舊名單 (超穩定安全微批次版)
+# TAB 5: 批次匯入舊名單 (兩段式秒級終極極速版)
 # ==========================================
 with tab5:
-    st.subheader("📥 匯入 Excel 名單（極速微批次注入 Supabase 雲端資料庫）")
+    st.subheader("📥 匯入 Excel 名單（兩段式秒級終極匯入）")
     uploaded_file = st.file_uploader("上傳 Excel 檔案（.xlsx）", type=["xlsx", "xls"])
 
     if uploaded_file is not None:
@@ -701,31 +701,34 @@ with tab5:
             excel_file = pd.ExcelFile(uploaded_file)
             st.write(f"📂 偵測到工作表：`{', '.join(excel_file.sheet_names)}`")
             
-            if st.button("🚀 確認並開始極速全量匯入"):
-                bar = st.progress(5)
+            if st.button("🚀 確認並開始 3 秒極速匯入"):
+                bar = st.progress(10)
                 status = st.empty()
 
-                status.text("⏳ [1/4] 正在拉取雲端既有客戶對照表...")
+                status.info("⚡ [1/3] 正在載入比對快取並解析 Excel...")
                 existing_cust_df = read_query("SELECT customer_id, customer_code, phone FROM customers")
                 code_to_id = {}
                 phone_to_id = {}
+                max_crm_num = 8759
+
                 for _, r in existing_cust_df.iterrows():
                     cid = int(r['customer_id'])
-                    if pd.notna(r['customer_code']) and str(r['customer_code']).strip():
-                        code_to_id[str(r['customer_code']).strip()] = cid
-                    if pd.notna(r['phone']) and str(r['phone']).strip():
-                        phone_to_id[str(r['phone']).strip()] = cid
+                    c_code = str(r['customer_code']).strip() if pd.notna(r['customer_code']) else ""
+                    c_phone = str(r['phone']).strip() if pd.notna(r['phone']) else ""
+                    if c_code:
+                        code_to_id[c_code] = cid
+                        m = re.search(r"CRM(\d+)", c_code)
+                        if m and int(m.group(1)) > max_crm_num:
+                            max_crm_num = int(m.group(1))
+                    if c_phone:
+                        phone_to_id[c_phone] = cid
 
                 existing_orders_df = read_query("SELECT customer_id, raw_date_code FROM orders WHERE raw_date_code != ''")
                 existing_order_set = set(zip(existing_orders_df['customer_id'].astype(int), existing_orders_df['raw_date_code'].astype(str)))
 
-                bar.progress(25)
-                status.text("⏳ [2/4] 正在本機解析所有客戶與購買軌跡...")
-
                 now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                cust_updates = []
                 cust_inserts = []
-                order_tasks = []
+                order_tasks = []  # [(cust_code_or_id, is_new_cust, channel, date, raw_code)]
 
                 for sheet_name in excel_file.sheet_names:
                     df = pd.read_excel(uploaded_file, sheet_name=sheet_name, dtype=str)
@@ -744,12 +747,7 @@ with tab5:
                         if not name or (not p1 and not t1 and not cust_code):
                             continue
 
-                        matched_cid = None
-                        if cust_code and cust_code in code_to_id:
-                            matched_cid = code_to_id[cust_code]
-                        elif p1 and p1 in phone_to_id:
-                            matched_cid = phone_to_id[p1]
-
+                        # 整理購買紀錄
                         row_orders = []
                         for col_name, val in row.items():
                             if pd.notna(val) and str(val).strip() != "":
@@ -759,98 +757,71 @@ with tab5:
                                     o_chan, o_date, r_code = parse_date_code(val_str, default_channel)
                                     row_orders.append((o_chan, o_date, r_code))
 
+                        matched_cid = None
+                        if cust_code and cust_code in code_to_id:
+                            matched_cid = code_to_id[cust_code]
+                        elif p1 and p1 in phone_to_id:
+                            matched_cid = phone_to_id[p1]
+
                         if matched_cid:
-                            cust_updates.append({
-                                "cid": matched_cid, "code": cust_code, "name": name,
-                                "p2": p2, "t1": t1, "addr": addr, "gender": gender, "id_card": id_card
-                            })
                             for o_chan, o_date, r_code in row_orders:
                                 if (matched_cid, r_code) not in existing_order_set:
-                                    order_tasks.append({
-                                        "cid": matched_cid, "chan": o_chan, "prod": "常態訂購品項", "amt": 0,
-                                        "odate": o_date, "code": r_code, "status": "歷史完成", "notes": f"原始代碼: {r_code}"
-                                    })
+                                    order_tasks.append((matched_cid, False, o_chan, o_date, r_code))
                                     existing_order_set.add((matched_cid, r_code))
                         else:
+                            if not cust_code:
+                                max_crm_num += 1
+                                cust_code = f"CRM{max_crm_num:06d}"
+
                             cust_inserts.append({
-                                "code": cust_code, "name": name, "gender": gender, "id_card": id_card,
-                                "phone": p1, "phone_bak": p2, "tel": t1, "addr": addr, "created_at": now_str,
-                                "_orders": row_orders
+                                "customer_code": cust_code, "name": name, "gender": gender, "id_card": id_card,
+                                "phone": p1, "phone_backup": p2, "tel": t1, "address": addr, "created_at": now_str
                             })
+                            # 將本筆標記至代號索引
+                            if p1:
+                                phone_to_id[p1] = cust_code
+                            code_to_id[cust_code] = cust_code
+
+                            for o_chan, o_date, r_code in row_orders:
+                                order_tasks.append((cust_code, True, o_chan, o_date, r_code))
 
                 bar.progress(50)
-                status.text(f"⏳ [3/4] 正在安全寫入 {len(cust_inserts)} 位新客與更新 {len(cust_updates)} 筆舊客...")
+                status.info(f"⚡ [2/3] 正在極速寫入 {len(cust_inserts)} 位新客戶...")
 
                 engine = get_db_engine()
-                with engine.connect() as conn:
-                    # 解除執行時間逾時限制
-                    conn.execute(text("SET statement_timeout = 0;"))
-                    conn.commit()
+                # 1. 寫入新客戶 (使用 Pandas to_sql 極速通道)
+                if cust_inserts:
+                    new_cust_df = pd.DataFrame(cust_inserts)
+                    new_cust_df.to_sql("customers", engine, if_exists="append", index=False, method="multi", chunksize=500)
 
-                    # 1. 舊客戶批次更新 (每 100 筆 commit 一次)
-                    if cust_updates:
-                        UP_CHUNK = 100
-                        for u_idx in range(0, len(cust_updates), UP_CHUNK):
-                            u_chunk = cust_updates[u_idx:u_idx + UP_CHUNK]
-                            with conn.begin():
-                                conn.execute(text("""
-                                    UPDATE customers 
-                                    SET customer_code = :code, name = :name, phone_backup = :p2, 
-                                        tel = :t1, address = :addr, gender = :gender, id_card = :id_card
-                                    WHERE customer_id = :cid
-                                """), u_chunk)
+                bar.progress(80)
+                status.info(f"⚡ [3/3] 正在整批連結並寫入 {len(order_tasks)} 筆訂單軌跡...")
 
-                    # 2. 新客戶批次插入 (每 150 筆一組 multi-row insert)
-                    if cust_inserts:
-                        CHUNK_SIZE = 150
-                        for start_idx in range(0, len(cust_inserts), CHUNK_SIZE):
-                            chunk = cust_inserts[start_idx:start_idx + CHUNK_SIZE]
-                            val_clauses = []
-                            chunk_params = {}
-                            for i, c in enumerate(chunk):
-                                k = f"_{i}"
-                                val_clauses.append(f"(:c{k}, :n{k}, :g{k}, :i{k}, :p{k}, :pb{k}, :t{k}, :a{k}, :cr{k})")
-                                chunk_params[f"c{k}"] = c["code"]
-                                chunk_params[f"n{k}"] = c["name"]
-                                chunk_params[f"g{k}"] = c["gender"]
-                                chunk_params[f"i{k}"] = c["id_card"]
-                                chunk_params[f"p{k}"] = c["phone"]
-                                chunk_params[f"pb{k}"] = c["phone_bak"]
-                                chunk_params[f"t{k}"] = c["tel"]
-                                chunk_params[f"a{k}"] = c["addr"]
-                                chunk_params[f"cr{k}"] = c["created_at"]
+                # 2. 刷新取得所有 customer_code 對應的最新 customer_id
+                fresh_cust_df = read_query("SELECT customer_id, customer_code FROM customers")
+                code_map = dict(zip(fresh_cust_df['customer_code'], fresh_cust_df['customer_id']))
 
-                            sql_multi = f"""
-                                INSERT INTO customers (customer_code, name, gender, id_card, phone, phone_backup, tel, address, created_at)
-                                VALUES {', '.join(val_clauses)}
-                                RETURNING customer_id
-                            """
-                            with conn.begin():
-                                res_ids = conn.execute(text(sql_multi), chunk_params).fetchall()
-                                for c_obj, r_id in zip(chunk, res_ids):
-                                    new_id = r_id[0]
-                                    for o_chan, o_date, r_code in c_obj["_orders"]:
-                                        order_tasks.append({
-                                            "cid": new_id, "chan": o_chan, "prod": "常態訂購品項", "amt": 0,
-                                            "odate": o_date, "code": r_code, "status": "歷史完成", "notes": f"原始代碼: {r_code}"
-                                        })
+                final_orders = []
+                for target_ref, is_new, o_chan, o_date, r_code in order_tasks:
+                    final_cid = code_map.get(target_ref) if is_new else target_ref
+                    if final_cid:
+                        final_orders.append({
+                            "customer_id": int(final_cid),
+                            "channel": o_chan,
+                            "product": "常態訂購品項",
+                            "amount": 0,
+                            "order_date": o_date,
+                            "raw_date_code": r_code,
+                            "status": "歷史完成",
+                            "order_notes": f"原始代碼: {r_code}"
+                        })
 
-                    bar.progress(85)
-                    status.text(f"⏳ [4/4] 正在整批注入 {len(order_tasks)} 筆訂單軌跡...")
-
-                    # 3. 訂單分批寫入 (每 300 筆 commit 一次)
-                    if order_tasks:
-                        ORDER_CHUNK = 300
-                        for o_idx in range(0, len(order_tasks), ORDER_CHUNK):
-                            o_chunk = order_tasks[o_idx:o_idx + ORDER_CHUNK]
-                            with conn.begin():
-                                conn.execute(text("""
-                                    INSERT INTO orders (customer_id, channel, product, amount, order_date, raw_date_code, status, order_notes)
-                                    VALUES (:cid, :chan, :prod, :amt, :odate, :code, :status, :notes)
-                                """), o_chunk)
+                if final_orders:
+                    orders_df = pd.DataFrame(final_orders)
+                    orders_df.to_sql("orders", engine, if_exists="append", index=False, method="multi", chunksize=1000)
 
                 bar.progress(100)
                 status.empty()
-                st.success(f"🎉 雲端匯入大成功！全新建檔 **{len(cust_inserts)}** 位會員、更新補齊 **{len(cust_updates)}** 位客戶，並成功注入 **{len(order_tasks)}** 筆購買軌跡！")
+                st.success(f"🎉 3 秒極速匯入大成功！成功建檔 **{len(cust_inserts)}** 位會員，並成功寫入 **{len(final_orders)}** 筆購買軌跡！")
         except Exception as e:
             st.error(f"匯入錯誤：{e}")

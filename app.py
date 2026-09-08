@@ -690,10 +690,10 @@ with tab4:
         st.info("尚無客戶資料。")
 
 # ==========================================
-# TAB 5: 批次匯入舊名單 (3秒極速批次打包版)
+# TAB 5: 批次匯入舊名單 (真正單一指令秒級全量寫入版)
 # ==========================================
 with tab5:
-    st.subheader("📥 匯入 Excel 名單（極速批次打包寫入 Supabase）")
+    st.subheader("📥 匯入 Excel 名單（極速全量注入 Supabase 雲端資料庫）")
     uploaded_file = st.file_uploader("上傳 Excel 檔案（.xlsx）", type=["xlsx", "xls"])
 
     if uploaded_file is not None:
@@ -701,121 +701,159 @@ with tab5:
             excel_file = pd.ExcelFile(uploaded_file)
             st.write(f"📂 偵測到工作表：`{', '.join(excel_file.sheet_names)}`")
             
-            if st.button("🚀 確認並開始 3 秒極速匯入雲端資料庫"):
-                with st.spinner("⚡ 正在本機高速解析並整批打包寫入 Supabase 雲端資料庫..."):
-                    existing_cust_df = read_query("SELECT customer_id, customer_code, phone FROM customers")
-                    code_to_id = {}
-                    phone_to_id = {}
-                    for _, r in existing_cust_df.iterrows():
-                        cid = int(r['customer_id'])
-                        if pd.notna(r['customer_code']) and str(r['customer_code']).strip():
-                            code_to_id[str(r['customer_code']).strip()] = cid
-                        if pd.notna(r['phone']) and str(r['phone']).strip():
-                            phone_to_id[str(r['phone']).strip()] = cid
+            if st.button("🚀 確認並開始極速全量匯入"):
+                bar = st.progress(10)
+                status = st.empty()
 
-                    existing_orders_df = read_query("SELECT customer_id, raw_date_code FROM orders WHERE raw_date_code != ''")
-                    existing_order_set = set(zip(existing_orders_df['customer_id'].astype(int), existing_orders_df['raw_date_code'].astype(str)))
+                status.text("⏳ [1/4] 正在拉取雲端既有客戶對照表...")
+                existing_cust_df = read_query("SELECT customer_id, customer_code, phone FROM customers")
+                code_to_id = {}
+                phone_to_id = {}
+                for _, r in existing_cust_df.iterrows():
+                    cid = int(r['customer_id'])
+                    if pd.notna(r['customer_code']) and str(r['customer_code']).strip():
+                        code_to_id[str(r['customer_code']).strip()] = cid
+                    if pd.notna(r['phone']) and str(r['phone']).strip():
+                        phone_to_id[str(r['phone']).strip()] = cid
 
-                    engine = get_db_engine()
-                    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                existing_orders_df = read_query("SELECT customer_id, raw_date_code FROM orders WHERE raw_date_code != ''")
+                existing_order_set = set(zip(existing_orders_df['customer_id'].astype(int), existing_orders_df['raw_date_code'].astype(str)))
 
-                    cust_updates = []
-                    cust_inserts = []
-                    temp_order_tasks = []
+                bar.progress(30)
+                status.text("⏳ [2/4] 正在本機極速解析所有客戶與購買軌跡...")
 
-                    for sheet_name in excel_file.sheet_names:
-                        df = pd.read_excel(uploaded_file, sheet_name=sheet_name, dtype=str)
-                        default_channel = "官網" if "官網" in sheet_name else "電話訂購"
-                        
-                        for _, row in df.iterrows():
-                            cust_code = str(row.get("客戶代號", "")).strip() if pd.notna(row.get("客戶代號")) else ""
-                            name = str(row.get("姓名", "")).strip() if pd.notna(row.get("姓名")) else ""
-                            p1 = clean_phone(row.get("行動(1)", ""))
-                            p2 = clean_phone(row.get("行動(2)", ""))
-                            t1 = str(row.get("電話(1)", "")).strip() if pd.notna(row.get("電話(1)")) else ""
-                            addr = str(row.get("地址", "")).strip() if pd.notna(row.get("地址")) else ""
-                            gender = str(row.get("性別", "")).strip() if pd.notna(row.get("性別")) else ""
-                            id_card = str(row.get("身分證號", "")).strip() if pd.notna(row.get("身分證號")) else ""
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                cust_updates = []
+                cust_inserts = []
+                order_tasks = []
 
-                            if not name or (not p1 and not t1 and not cust_code):
-                                continue
+                for sheet_name in excel_file.sheet_names:
+                    df = pd.read_excel(uploaded_file, sheet_name=sheet_name, dtype=str)
+                    default_channel = "官網" if "官網" in sheet_name else "電話訂購"
 
-                            matched_cid = None
-                            if cust_code and cust_code in code_to_id:
-                                matched_cid = code_to_id[cust_code]
-                            elif p1 and p1 in phone_to_id:
-                                matched_cid = phone_to_id[p1]
+                    for _, row in df.iterrows():
+                        cust_code = str(row.get("客戶代號", "")).strip() if pd.notna(row.get("客戶代號")) else ""
+                        name = str(row.get("姓名", "")).strip() if pd.notna(row.get("姓名")) else ""
+                        p1 = clean_phone(row.get("行動(1)", ""))
+                        p2 = clean_phone(row.get("行動(2)", ""))
+                        t1 = str(row.get("電話(1)", "")).strip() if pd.notna(row.get("電話(1)")) else ""
+                        addr = str(row.get("地址", "")).strip() if pd.notna(row.get("地址")) else ""
+                        gender = str(row.get("性別", "")).strip() if pd.notna(row.get("性別")) else ""
+                        id_card = str(row.get("身分證號", "")).strip() if pd.notna(row.get("身分證號")) else ""
 
-                            # 收集訂單歷史代碼
-                            orders_in_row = []
-                            for col_name, val in row.items():
-                                if pd.notna(val) and str(val).strip() != "":
-                                    col_str = str(col_name)
-                                    val_str = str(val).strip()
-                                    if (col_str.startswith("購") or col_str.startswith("Unnamed")) and (("-" in val_str) or ("/" in val_str) or val_str.startswith("A") or val_str.startswith("B")):
-                                        order_chan, order_date, raw_code = parse_date_code(val_str, default_channel)
-                                        orders_in_row.append((order_chan, order_date, raw_code))
+                        if not name or (not p1 and not t1 and not cust_code):
+                            continue
 
-                            if matched_cid:
-                                cust_updates.append({
-                                    "cid": matched_cid, "code": cust_code, "name": name,
-                                    "p2": p2, "t1": t1, "addr": addr, "gender": gender, "id_card": id_card
+                        matched_cid = None
+                        if cust_code and cust_code in code_to_id:
+                            matched_cid = code_to_id[cust_code]
+                        elif p1 and p1 in phone_to_id:
+                            matched_cid = phone_to_id[p1]
+
+                        # 整理購買代碼
+                        row_orders = []
+                        for col_name, val in row.items():
+                            if pd.notna(val) and str(val).strip() != "":
+                                col_str = str(col_name)
+                                val_str = str(val).strip()
+                                if (col_str.startswith("購") or col_str.startswith("Unnamed")) and (("-" in val_str) or ("/" in val_str) or val_str.startswith("A") or val_str.startswith("B")):
+                                    o_chan, o_date, r_code = parse_date_code(val_str, default_channel)
+                                    row_orders.append((o_chan, o_date, r_code))
+
+                        if matched_cid:
+                            cust_updates.append({
+                                "cid": matched_cid, "code": cust_code, "name": name,
+                                "p2": p2, "t1": t1, "addr": addr, "gender": gender, "id_card": id_card
+                            })
+                            for o_chan, o_date, r_code in row_orders:
+                                if (matched_cid, r_code) not in existing_order_set:
+                                    order_tasks.append({
+                                        "cid": matched_cid, "chan": o_chan, "prod": "常態訂購品項", "amt": 0,
+                                        "odate": o_date, "code": r_code, "status": "歷史完成", "notes": f"原始代碼: {r_code}"
+                                    })
+                                    existing_order_set.add((matched_cid, r_code))
+                        else:
+                            # 暫存新客戶資訊（帶有其專屬訂單清單）
+                            cust_inserts.append({
+                                "code": cust_code, "name": name, "gender": gender, "id_card": id_card,
+                                "phone": p1, "phone_bak": p2, "tel": t1, "addr": addr, "created_at": now_str,
+                                "_orders": row_orders
+                            })
+
+                bar.progress(60)
+                status.text(f"⏳ [3/4] 正在單一指令批次寫入 {len(cust_inserts)} 位新客戶與更新 {len(cust_updates)} 筆...")
+
+                engine = get_db_engine()
+                with engine.connect() as conn:
+                    with conn.begin():
+                        # 1. 批次更新
+                        if cust_updates:
+                            conn.execute(text("""
+                                UPDATE customers 
+                                SET customer_code = :code, name = :name, phone_backup = :p2, 
+                                    tel = :t1, address = :addr, gender = :gender, id_card = :id_card
+                                WHERE customer_id = :cid
+                            """), cust_updates)
+
+                        # 2. 單一指令全量 INSERT 所有新客戶並批次取回所有 ID (極速關鍵)
+                        if cust_inserts:
+                            # 建立參數陣列
+                            insert_records = []
+                            for idx, c in enumerate(cust_inserts):
+                                insert_records.append({
+                                    f"c{idx}": c["code"], f"n{idx}": c["name"], f"g{idx}": c["gender"],
+                                    f"i{idx}": c["id_card"], f"p{idx}": c["phone"], f"pb{idx}": c["phone_bak"],
+                                    f"t{idx}": c["tel"], f"a{idx}": c["addr"], f"cr{idx}": c["created_at"]
                                 })
-                                for o_chan, o_date, r_code in orders_in_row:
-                                    if (matched_cid, r_code) not in existing_order_set:
-                                        temp_order_tasks.append((matched_cid, o_chan, o_date, r_code))
-                                        existing_order_set.add((matched_cid, r_code))
-                            else:
-                                cust_inserts.append({
-                                    "code": cust_code, "name": name, "gender": gender, "id_card": id_card,
-                                    "phone": p1, "phone_bak": p2, "tel": t1, "addr": addr, "created_at": now_str,
-                                    "_orders": orders_in_row
-                                })
+                            
+                            # 分每 500 筆一組 multi-row insert 避免 SQL 長度限制
+                            CHUNK_SIZE = 400
+                            for start_idx in range(0, len(cust_inserts), CHUNK_SIZE):
+                                chunk = cust_inserts[start_idx:start_idx + CHUNK_SIZE]
+                                val_clauses = []
+                                chunk_params = {}
+                                for i, c in enumerate(chunk):
+                                    k = f"_{i}"
+                                    val_clauses.append(f"(:c{k}, :n{k}, :g{k}, :i{k}, :p{k}, :pb{k}, :t{k}, :a{k}, :cr{k})")
+                                    chunk_params[f"c{k}"] = c["code"]
+                                    chunk_params[f"n{k}"] = c["name"]
+                                    chunk_params[f"g{k}"] = c["gender"]
+                                    chunk_params[f"i{k}"] = c["id_card"]
+                                    chunk_params[f"p{k}"] = c["phone"]
+                                    chunk_params[f"pb{k}"] = c["phone_bak"]
+                                    chunk_params[f"t{k}"] = c["tel"]
+                                    chunk_params[f"a{k}"] = c["addr"]
+                                    chunk_params[f"cr{k}"] = c["created_at"]
 
-                    # 執行整批資料庫寫入 (只發送極少次指令)
-                    total_orders_added = 0
-                    with engine.connect() as conn:
-                        with conn.begin():
-                            # 1. 批次更新舊客
-                            if cust_updates:
-                                conn.execute(text("""
-                                    UPDATE customers 
-                                    SET customer_code = :code, name = :name, phone_backup = :p2, 
-                                        tel = :t1, address = :addr, gender = :gender, id_card = :id_card
-                                    WHERE customer_id = :cid
-                                """), cust_updates)
-
-                            # 2. 批次新增新客並取得 ID
-                            order_inserts = []
-                            for o_cid, o_chan, o_date, r_code in temp_order_tasks:
-                                order_inserts.append({
-                                    "cid": o_cid, "chan": o_chan, "prod": "常態訂購品項", "amt": 0,
-                                    "odate": o_date, "code": r_code, "status": "歷史完成", "notes": f"原始代碼: {r_code}"
-                                })
-
-                            if cust_inserts:
-                                for c_data in cust_inserts:
-                                    o_list = c_data.pop("_orders")
-                                    res = conn.execute(text("""
-                                        INSERT INTO customers (customer_code, name, gender, id_card, phone, phone_backup, tel, address, created_at)
-                                        VALUES (:code, :name, :gender, :id_card, :phone, :phone_bak, :tel, :addr, :created_at)
-                                        RETURNING customer_id
-                                    """), c_data)
-                                    new_cid = res.fetchone()[0]
-                                    for o_chan, o_date, r_code in o_list:
-                                        order_inserts.append({
-                                            "cid": new_cid, "chan": o_chan, "prod": "常態訂購品項", "amt": 0,
+                                sql_multi = f"""
+                                    INSERT INTO customers (customer_code, name, gender, id_card, phone, phone_backup, tel, address, created_at)
+                                    VALUES {', '.join(val_clauses)}
+                                    RETURNING customer_id
+                                """
+                                res_ids = conn.execute(text(sql_multi), chunk_params).fetchall()
+                                for c_obj, r_id in zip(chunk, res_ids):
+                                    new_id = r_id[0]
+                                    for o_chan, o_date, r_code in c_obj["_orders"]:
+                                        order_tasks.append({
+                                            "cid": new_id, "chan": o_chan, "prod": "常態訂購品項", "amt": 0,
                                             "odate": o_date, "code": r_code, "status": "歷史完成", "notes": f"原始代碼: {r_code}"
                                         })
 
-                            # 3. 批次打包插入所有訂單
-                            if order_inserts:
+                        bar.progress(85)
+                        status.text(f"⏳ [4/4] 正在整批寫入 {len(order_tasks)} 筆訂單軌跡...")
+
+                        # 3. 訂單分批大區塊寫入
+                        if order_tasks:
+                            ORDER_CHUNK = 1000
+                            for o_idx in range(0, len(order_tasks), ORDER_CHUNK):
+                                o_chunk = order_tasks[o_idx:o_idx + ORDER_CHUNK]
                                 conn.execute(text("""
                                     INSERT INTO orders (customer_id, channel, product, amount, order_date, raw_date_code, status, order_notes)
                                     VALUES (:cid, :chan, :prod, :amt, :odate, :code, :status, :notes)
-                                """), order_inserts)
-                                total_orders_added = len(order_inserts)
+                                """), o_chunk)
 
-                    st.success(f"🎉 3 秒極速匯入完成！成功處理 **{len(cust_inserts)}** 位新會員、更新補齊 **{len(cust_updates)}** 位客戶，並整批寫入 **{total_orders_added}** 筆購買軌跡！")
+                bar.progress(100)
+                status.empty()
+                st.success(f"🎉 極速匯入大成功！全新建檔 **{len(cust_inserts)}** 位會員、更新補齊 **{len(cust_updates)}** 位客戶，並成功注入 **{len(order_tasks)}** 筆購買軌跡！")
         except Exception as e:
             st.error(f"匯入錯誤：{e}")

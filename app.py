@@ -5,144 +5,33 @@ from datetime import datetime, date, timedelta
 import io
 import re
 
-# --- 0. 設定頁面配置與「終極核彈破壞」CSS ---
+# --- 0. 設定頁面配置與「無空白行真空壓縮」CSS ---
 st.set_page_config(page_title="有其田 客服 CRM 系統", layout="wide", page_icon="🌾")
 
+# 🚨 警告：下方 CSS 區塊內絕對不可加上任何「空白行」，否則會觸發 Streamlit 破壞 Bug！
 st.markdown("""
 <style>
-    /* 全域基準字體放大 */
-    html, body, [class*="css"] {
-        font-size: 24px !important;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif !important;
-    }
-
-    /* =========================================
-       💣 終極核彈指令：炸毀 Streamlit 原廠按鈕限制
-       ========================================= */
-    
-    /* 1. 炸毀外層容器的佈局限制，強制拉開距離 */
-    div[data-testid="stTabs"] > div[data-baseweb="tab-list"] {
-        gap: 50px !important; 
-        margin-bottom: 30px !important;
-    }
-
-    /* 2. 炸毀按鈕本身的限制，強制加大加高 */
-    div[data-testid="stTabs"] button[data-baseweb="tab"] {
-        all: revert !important; /* 🌟 殺死所有原廠預設樣式 */
-        display: inline-flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        margin-right: 30px !important;
-        padding: 15px 30px !important;
-        min-height: 90px !important;
-        background-color: #f7fafc !important;
-        border-radius: 16px 16px 0 0 !important;
-        border: 3px solid #e2e8f0 !important;
-        border-bottom: none !important;
-        cursor: pointer !important;
-    }
-
-    /* 3. 炸毀文字層的限制，絕對強制 45px */
-    div[data-testid="stTabs"] button[data-baseweb="tab"] * {
-        all: unset !important; /* 🌟 殺死文字的鎖定限制 */
-        font-size: 45px !important; 
-        font-weight: 900 !important;
-        font-family: inherit !important;
-        color: #4a5568 !important;
-        white-space: nowrap !important;
-        line-height: 1.3 !important;
-    }
-
-    /* 4. 被選中時的樣式 (紅線 + 紅字) */
-    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
-        background-color: #fff5f5 !important;
-        border-top: 10px solid #e53e3e !important;
-    }
-    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] * {
-        color: #e53e3e !important;
-    }
-    /* ========================================= */
-
-    /* 大標題與副標題 */
-    h1 { font-size: 45px !important; font-weight: 900 !important; margin-bottom: 24px !important; }
-    h2, h3 { font-size: 34px !important; font-weight: 800 !important; margin-top: 20px !important; margin-bottom: 16px !important; }
-    h4, h5 { font-size: 28px !important; font-weight: 700 !important; margin-top: 16px !important; color: #2b6cb0 !important; }
-
-    /* 輸入欄位標籤文字 (Label) */
-    label, label p, [data-testid="stWidgetLabel"] p {
-        font-size: 26px !important;
-        font-weight: 900 !important;
-        color: #1a1a1a !important;
-        margin-bottom: 12px !important;
-    }
-
-    /* 所有輸入框、下拉選單格子「極致加高加大」 */
-    input[type="text"], input[type="password"], input[type="number"], select, div[data-baseweb="select"] > div {
-        font-size: 26px !important;
-        min-height: 70px !important;
-        border-radius: 12px !important;
-        border: 2px solid #718096 !important;
-        padding: 12px 20px !important;
-        background-color: #ffffff !important;
-        font-weight: 700 !important;
-        color: #1a202c !important;
-    }
-    
-    /* 日期選擇器專屬高度 */
-    div[data-baseweb="input"] {
-        min-height: 70px !important;
-    }
-
-    /* 下拉選單內部選項字體 */
-    div[data-baseweb="select"] span {
-        font-size: 26px !important;
-        font-weight: 700 !important;
-    }
-
-    /* 多行備註文字框加大 */
-    textarea {
-        font-size: 26px !important;
-        min-height: 140px !important;
-        line-height: 1.6 !important;
-        border: 2px solid #718096 !important;
-    }
-
-    /* 表單按鈕加大 */
-    .stButton > button {
-        min-height: 72px !important;
-        font-size: 28px !important;
-        font-weight: 900 !important;
-        border-radius: 12px !important;
-        padding: 0 40px !important;
-        margin-top: 14px !important;
-        border: 2px solid #3182ce !important;
-    }
-
-    /* 關鍵數據指標卡片 (Metrics) */
-    [data-testid="stMetricValue"] {
-        font-size: 46px !important;
-        font-weight: 900 !important;
-        color: #2b6cb0 !important;
-    }
-    [data-testid="stMetricLabel"] p {
-        font-size: 26px !important;
-        font-weight: 800 !important;
-    }
-
-    /* 展開摺疊面板 (Expander) 標題加大 */
-    details summary p, details summary span {
-        font-size: 26px !important;
-        font-weight: 800 !important;
-        color: #2c5282 !important;
-    }
-
-    /* 表格字體放大 */
-    div[data-testid="stDataFrame"] {
-        font-size: 22px !important;
-    }
-
-    div[data-testid="column"] { padding: 0 16px !important; }
-    hr { margin: 36px 0 !important; border: 0 !important; border-top: 3px solid #cbd5e0 !important; }
+html, body, [class*="css"] { font-size: 24px !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif !important; }
+div[data-testid="stTabs"] > div[data-baseweb="tab-list"], div[data-testid="stTabs"] > div[role="tablist"], div[data-testid="stTabs"] > div { gap: 40px !important; margin-bottom: 20px !important; }
+div[data-testid="stTabs"] button[role="tab"] { margin-right: 30px !important; min-height: 100px !important; height: auto !important; padding: 15px 30px !important; background-color: #f7fafc !important; border-radius: 16px 16px 0 0 !important; border: 2px solid #e2e8f0 !important; border-bottom: none !important; }
+div[data-testid="stTabs"] button[role="tab"] p, div[data-testid="stTabs"] button[role="tab"] span, div[data-testid="stTabs"] button[role="tab"] div { font-size: 45px !important; font-weight: 900 !important; color: #4a5568 !important; line-height: 1.5 !important; margin: 0 !important; padding: 0 !important; white-space: nowrap !important; }
+div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] { border-top: 8px solid #e53e3e !important; background-color: #fff5f5 !important; }
+div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] p, div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] span { color: #e53e3e !important; }
+h1 { font-size: 45px !important; font-weight: 900 !important; margin-bottom: 24px !important; }
+h2, h3 { font-size: 34px !important; font-weight: 800 !important; margin-top: 20px !important; margin-bottom: 16px !important; }
+h4, h5 { font-size: 28px !important; font-weight: 700 !important; margin-top: 16px !important; color: #2b6cb0 !important; }
+label, label p, [data-testid="stWidgetLabel"] p { font-size: 26px !important; font-weight: 900 !important; color: #1a1a1a !important; margin-bottom: 12px !important; }
+input[type="text"], input[type="password"], input[type="number"], select, div[data-baseweb="select"] > div { font-size: 26px !important; min-height: 70px !important; border-radius: 12px !important; border: 2px solid #718096 !important; padding: 12px 20px !important; background-color: #ffffff !important; font-weight: 700 !important; color: #1a202c !important; }
+div[data-baseweb="input"] { min-height: 70px !important; }
+div[data-baseweb="select"] span { font-size: 26px !important; font-weight: 700 !important; }
+textarea { font-size: 26px !important; min-height: 140px !important; line-height: 1.6 !important; border: 2px solid #718096 !important; }
+.stButton > button { min-height: 72px !important; font-size: 28px !important; font-weight: 900 !important; border-radius: 12px !important; padding: 0 40px !important; margin-top: 14px !important; border: 2px solid #3182ce !important; }
+[data-testid="stMetricValue"] { font-size: 46px !important; font-weight: 900 !important; color: #2b6cb0 !important; }
+[data-testid="stMetricLabel"] p { font-size: 26px !important; font-weight: 800 !important; }
+details summary p, details summary span { font-size: 26px !important; font-weight: 800 !important; color: #2c5282 !important; }
+div[data-testid="stDataFrame"] { font-size: 22px !important; }
+div[data-testid="column"] { padding: 0 16px !important; }
+hr { margin: 36px 0 !important; border: 0 !important; border-top: 3px solid #cbd5e0 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -341,7 +230,6 @@ def delete_order(order_id):
     execute_query("DELETE FROM orders WHERE order_id = :oid", {"oid": order_id})
 
 # --- 4. 主介面排版 ---
-# 🚨 這是我們的「追蹤劑大標題」，用來確認雲端主機有沒有死機！
 st.title("🌾 有其田 客服管理系統 (🌟CRM 旗艦升級版🌟)")
 
 tab1, tab2, tab3, tab4, tab6, tab5 = st.tabs([
@@ -529,7 +417,7 @@ with tab2:
         with nr2_1:
             n_r2_name = st.text_input("第二收件人姓名 (送禮對象)")
         with nr2_2:
-            n_r2_phone = st.text_input("第二收件人手機 (送禮電話)", value=cr2_phone if cr2_phone else "")
+            n_r2_phone = st.text_input("第二收件人手機 (送禮電話)")
         n_r2_addr = st.text_input("第二收件地址 (送禮地址)")
 
         st.markdown("##### 📦 首次訂購品項（選填）")

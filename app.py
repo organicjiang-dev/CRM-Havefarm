@@ -5,7 +5,7 @@ from datetime import datetime, date, timedelta
 import io
 import re
 
-# --- 0. 設定頁面配置與「最高優先權」CSS ---
+# --- 0. 設定頁面配置與「終極精準打擊 45px」CSS ---
 st.set_page_config(page_title="有其田 客服 CRM 系統", layout="wide", page_icon="🌾")
 
 st.markdown("""
@@ -17,53 +17,39 @@ st.markdown("""
     }
 
     /* =========================================
-       🔥 終極大絕招：屬性疊加 (Attribute Chaining) 🔥
-       利用重複寫 [role="tab"] 三次，將 CSS 優先權提升到極致，
-       直接粉碎 Streamlit 內建的所有字體限制！
+       🔥 針對 Streamlit 分頁標籤的精準覆寫 
        ========================================= */
-
-    /* 1. 暴力撐大按鈕體積與拉開間距 */
-    button[role="tab"][role="tab"][role="tab"] {
-        min-height: 110px !important;
+    /* 1. 拉開按鈕之間的距離，並解除高度限制 */
+    div[data-testid="stTabs"] button[data-baseweb="tab"] {
+        margin-right: 40px !important; 
+        min-height: 90px !important; 
         height: auto !important;
-        margin-right: 40px !important; /* 強制拉開右側距離 */
-        padding: 15px 30px !important;
+        padding: 10px 20px !important;
         background-color: #f7fafc !important;
-        border-radius: 16px 16px 0 0 !important;
         border: 2px solid #e2e8f0 !important;
         border-bottom: none !important;
+        border-radius: 12px 12px 0 0 !important;
     }
 
-    /* 2. 最高優先權鎖定文字大小 (包含裡面的 p, span, div) */
-    button[role="tab"][role="tab"][role="tab"] p,
-    button[role="tab"][role="tab"][role="tab"] span,
-    button[role="tab"][role="tab"][role="tab"] div {
-        font-size: 45px !important;   /* 🌟 絕對強制放大到 45px 🌟 */
-        font-weight: 900 !important;  /* 絕對最粗體 */
+    /* 2. 精準鎖定隱藏的 <p> 標籤，絕對放大到 45px 粗體 */
+    div[data-testid="stTabs"] button[data-baseweb="tab"] p {
+        font-size: 45px !important;
+        font-weight: 900 !important;
         color: #4a5568 !important;
-        line-height: 1.5 !important;
+        line-height: 1.3 !important;
         margin: 0 !important;
         padding: 0 !important;
-        white-space: nowrap !important; /* 保證 45px 的字不會被擠到換行 */
     }
 
     /* 3. 被選中時的樣式 (紅線 + 紅字) */
-    button[role="tab"][role="tab"][role="tab"][aria-selected="true"] {
-        border-top: 8px solid #e53e3e !important; 
+    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
+        border-top: 8px solid #e53e3e !important;
         background-color: #fff5f5 !important;
     }
-    button[role="tab"][role="tab"][role="tab"][aria-selected="true"] p,
-    button[role="tab"][role="tab"][role="tab"][aria-selected="true"] span {
-        color: #e53e3e !important; /* 點選時文字變紅色 */
-    }
-
-    /* 4. 拉開外層容器的距離 */
-    div[role="tablist"][role="tablist"][role="tablist"] {
-        gap: 50px !important; /* 確保按鈕之間有巨大的空隙 */
-        margin-bottom: 20px !important;
+    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] p {
+        color: #e53e3e !important; 
     }
     /* ========================================= */
-
 
     /* 大標題與副標題 */
     h1 { font-size: 45px !important; font-weight: 900 !important; margin-bottom: 24px !important; }

@@ -5,7 +5,7 @@ from datetime import datetime, date, timedelta
 import io
 import re
 
-# --- 0. 設定頁面配置與「終極放大」CSS ---
+# --- 0. 設定頁面配置與「暴力強制放大」CSS ---
 st.set_page_config(page_title="有其田 客服 CRM 系統", layout="wide", page_icon="🌾")
 
 st.markdown("""
@@ -16,31 +16,34 @@ st.markdown("""
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif !important;
     }
 
-    /* 最上方分頁按鈕 (Tabs) 專屬 40px 超大字體與加大間距 */
-    div[role="tablist"] {
-        gap: 25px !important; /* 強制拉開按鈕之間的距離 */
-        margin-bottom: 20px !important;
-    }
-    button[data-baseweb="tab"] {
-        padding: 20px 30px !important;
-        margin-right: 20px !important; /* 備用拉開距離 */
-        background-color: #f7fafc !important;
+    /* 🌟 針對 Streamlit 分頁按鈕進行暴力強制覆蓋 */
+    div[data-testid="stTabs"] button[data-baseweb="tab"] {
+        margin-right: 50px !important; /* 強制拉開按鈕之間的距離 (50px) */
+        padding: 20px 30px !important; /* 增加按鈕內部的上下左右空間 */
+        background-color: #f7fafc !important; /* 預設淡灰色背景 */
         border-radius: 16px 16px 0 0 !important;
         border: 2px solid #e2e8f0 !important;
         border-bottom: none !important;
     }
-    button[data-baseweb="tab"] p, button[data-baseweb="tab"] span {
-        font-size: 40px !important; /* 字體強制放大至 40px */
-        font-weight: 900 !important;
+    
+    /* 🌟 強制放大分頁文字到 45px */
+    div[data-testid="stTabs"] button[data-baseweb="tab"] p,
+    div[data-testid="stTabs"] button[data-baseweb="tab"] span,
+    div[data-testid="stTabs"] button[data-baseweb="tab"] div {
+        font-size: 45px !important; /* 文字大小 45px */
+        font-weight: 900 !important; /* 最粗體 */
+        color: #2d3748 !important; /* 深灰色 */
         line-height: 1.5 !important;
-        color: #2d3748 !important;
     }
-    button[data-baseweb="tab"][aria-selected="true"] {
-        background-color: #ebf8ff !important;
-        border-top: 6px solid #3182ce !important;
+
+    /* 被選中時的分頁按鈕樣式 */
+    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
+        background-color: #ebf8ff !important; /* 淺藍色背景 */
+        border-top: 8px solid #3182ce !important; /* 頂部粗藍線 */
     }
-    button[data-baseweb="tab"][aria-selected="true"] p, button[data-baseweb="tab"][aria-selected="true"] span {
-        color: #2b6cb0 !important;
+    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] p,
+    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] span {
+        color: #2b6cb0 !important; /* 藍色文字 */
     }
 
     /* 大標題與副標題 */
@@ -752,7 +755,7 @@ with tab4:
         st.info("尚無客戶資料。")
 
 # ==========================================
-# TAB 6: 期間訂單報表與匯出 (全新功能)
+# TAB 6: 期間訂單報表與匯出
 # ==========================================
 with tab6:
     st.subheader("📅 期間訂單紀錄撈取與報表匯出")
@@ -793,10 +796,8 @@ with tab6:
                 total_amount = report_df["訂單金額"].sum()
                 st.success(f"✅ 成功撈取 **{len(report_df)}** 筆訂單紀錄！此區間累積金額為：**NT$ {total_amount:,}**")
                 
-                # 顯示報表預覽
                 st.dataframe(report_df, use_container_width=True)
 
-                # 下載按鈕
                 csv_data = report_df.to_csv(index=False).encode('utf-8-sig')
                 st.download_button(
                     label=f"📥 下載 {start_date} 至 {end_date} 訂單明細 (CSV)",

@@ -66,15 +66,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- 1. 客服人員帳號密碼設定 ---
-# 格式為 "帳號": "密碼"，日後可在此直接增減同仁帳號
 AUTH_USERS = {
-    "admin": "havefarm_29174887",      # 系統管理員
-    "service": "havefarm_29174887",    # 客服同仁共用帳號
-    "service02": "29174887_organic"      # 備用帳號
+    "admin": "havefarm_29174887",
+    "service": "havefarm_29174887",
+    "service02": "29174887_organic"
 }
 
 def check_login():
-    """檢查登入狀態，若未登入則顯示登入表單並阻擋後續畫面執行"""
     if "logged_in" not in st.session_state:
         st.session_state.logged_in = False
         st.session_state.username = ""
@@ -102,11 +100,9 @@ def check_login():
         return False
     return True
 
-# 執行驗證攔截：未通過則直接停止後續載入
 if not check_login():
     st.stop()
 
-# --- 側邊欄：顯示當前登入者與登出按鈕 ---
 with st.sidebar:
     st.markdown(f"### 👤 目前使用者：`:blue[{st.session_state.username}]`")
     st.caption("連線狀態：🟢 Supabase 雲端資料庫已加密連線")
@@ -694,10 +690,10 @@ with tab4:
         st.info("尚無客戶資料。")
 
 # ==========================================
-# TAB 5: 批次匯入舊名單
+# TAB 5: 批次匯入舊名單 (超高速批次交易處理版)
 # ==========================================
 with tab5:
-    st.subheader("📥 匯入 Excel 名單（自動解析 A/B 代碼寫入 Supabase 雲端資料庫）")
+    st.subheader("📥 匯入 Excel 名單（超高速批次解析 A/B 寫入 Supabase）")
     uploaded_file = st.file_uploader("上傳 Excel 檔案（.xlsx）", type=["xlsx", "xls"])
 
     if uploaded_file is not None:
@@ -705,61 +701,100 @@ with tab5:
             excel_file = pd.ExcelFile(uploaded_file)
             st.write(f"📂 偵測到工作表：`{', '.join(excel_file.sheet_names)}`")
             
-            if st.button("🚀 確認並開始解析 A/B 記錄並匯入雲端資料庫"):
+            if st.button("🚀 確認並開始超高速匯入雲端資料庫"):
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                status_text.info("⏳ 步驟 1/3：正在自雲端載入既有客戶比對快取...")
+                existing_cust_df = read_query("SELECT customer_id, customer_code, phone FROM customers")
+                code_to_id = {}
+                phone_to_id = {}
+                for _, r in existing_cust_df.iterrows():
+                    cid = int(r['customer_id'])
+                    if pd.notna(r['customer_code']) and str(r['customer_code']).strip():
+                        code_to_id[str(r['customer_code']).strip()] = cid
+                    if pd.notna(r['phone']) and str(r['phone']).strip():
+                        phone_to_id[str(r['phone']).strip()] = cid
+
+                existing_orders_df = read_query("SELECT customer_id, raw_date_code FROM orders WHERE raw_date_code != ''")
+                existing_order_set = set(zip(existing_orders_df['customer_id'].astype(int), existing_orders_df['raw_date_code'].astype(str)))
+
+                status_text.info("⏳ 步驟 2/3：正在本機極速解析 Excel 內容與購買代碼...")
+                engine = get_db_engine()
                 now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                total_cust = 0
-                total_orders = 0
 
-                for sheet_name in excel_file.sheet_names:
-                    df = pd.read_excel(uploaded_file, sheet_name=sheet_name, dtype=str)
-                    default_channel = "官網" if "官網" in sheet_name else "電話訂購"
+                total_cust_added = 0
+                total_cust_updated = 0
+                total_orders_added = 0
 
-                    for _, row in df.iterrows():
-                        cust_code = str(row.get("客戶代號", "")).strip()
-                        name = str(row.get("姓名", "")).strip()
-                        p1 = clean_phone(row.get("行動(1)", ""))
-                        p2 = clean_phone(row.get("行動(2)", ""))
-                        t1 = str(row.get("電話(1)", "")).strip()
-                        addr = str(row.get("地址", "")).strip()
-                        gender = str(row.get("性別", "")).strip()
-                        id_card = str(row.get("身分證號", "")).strip()
+                with engine.connect() as conn:
+                    with conn.begin():
+                        for s_idx, sheet_name in enumerate(excel_file.sheet_names):
+                            df = pd.read_excel(uploaded_file, sheet_name=sheet_name, dtype=str)
+                            default_channel = "官網" if "官網" in sheet_name else "電話訂購"
+                            
+                            total_rows = len(df)
+                            for idx, row in df.iterrows():
+                                if idx % 50 == 0:
+                                    progress_val = min(1.0, (s_idx + (idx / max(total_rows, 1))) / len(excel_file.sheet_names))
+                                    progress_bar.progress(progress_val)
+                                    status_text.text(f"正在處理工作表 [{sheet_name}] 第 {idx+1}/{total_rows} 筆...")
 
-                        if not name or (not p1 and not t1 and not cust_code):
-                            continue
+                                cust_code = str(row.get("客戶代號", "")).strip() if pd.notna(row.get("客戶代號")) else ""
+                                name = str(row.get("姓名", "")).strip() if pd.notna(row.get("姓名")) else ""
+                                p1 = clean_phone(row.get("行動(1)", ""))
+                                p2 = clean_phone(row.get("行動(2)", ""))
+                                t1 = str(row.get("電話(1)", "")).strip() if pd.notna(row.get("電話(1)")) else ""
+                                addr = str(row.get("地址", "")).strip() if pd.notna(row.get("地址")) else ""
+                                gender = str(row.get("性別", "")).strip() if pd.notna(row.get("性別")) else ""
+                                id_card = str(row.get("身分證號", "")).strip() if pd.notna(row.get("身分證號")) else ""
 
-                        exist_df = read_query("SELECT customer_id FROM customers WHERE customer_code = :code OR phone = :phone", {"code": cust_code, "phone": p1})
+                                if not name or (not p1 and not t1 and not cust_code):
+                                    continue
 
-                        if not exist_df.empty:
-                            cid = int(exist_df.iloc[0]['customer_id'])
-                            execute_query("""
-                                UPDATE customers 
-                                SET customer_code = :code, name = :name, phone_backup = :p2, tel = :t1, address = :addr, gender = :gender, id_card = :id_card
-                                WHERE customer_id = :cid
-                            """, {"code": cust_code, "name": name, "p2": p2, "t1": t1, "addr": addr, "gender": gender, "id_card": id_card, "cid": cid})
-                        else:
-                            res = execute_query("""
-                                INSERT INTO customers (customer_code, name, gender, id_card, phone, phone_backup, tel, address, created_at)
-                                VALUES (:code, :name, :gender, :id_card, :p1, :p2, :t1, :addr, :created_at)
-                                RETURNING customer_id
-                            """, {"code": cust_code, "name": name, "gender": gender, "id_card": id_card, "p1": p1, "p2": p2, "t1": t1, "addr": addr, "created_at": now_str})
-                            cid = res.fetchone()[0]
-                            total_cust += 1
+                                matched_cid = None
+                                if cust_code and cust_code in code_to_id:
+                                    matched_cid = code_to_id[cust_code]
+                                elif p1 and p1 in phone_to_id:
+                                    matched_cid = phone_to_id[p1]
 
-                        for col_name, val in row.items():
-                            if pd.notna(val) and str(val).strip() != "":
-                                col_str = str(col_name)
-                                val_str = str(val).strip()
-                                if (col_str.startswith("購") or col_str.startswith("Unnamed")) and (("-" in val_str) or ("/" in val_str) or val_str.startswith("A") or val_str.startswith("B")):
-                                    order_chan, order_date, raw_code = parse_date_code(val_str, default_channel)
-                                    
-                                    ord_exist = read_query("SELECT order_id FROM orders WHERE customer_id = :cid AND raw_date_code = :code", {"cid": cid, "code": raw_code})
-                                    if ord_exist.empty:
-                                        execute_query("""
-                                            INSERT INTO orders (customer_id, channel, product, amount, order_date, raw_date_code, status, order_notes)
-                                            VALUES (:cid, :chan, '常態訂購品項', 0, :odate, :code, '歷史完成', :notes)
-                                        """, {"cid": cid, "chan": order_chan, "odate": order_date, "code": raw_code, "notes": f"原始代碼: {raw_code}"})
-                                        total_orders += 1
+                                if matched_cid:
+                                    conn.execute(text("""
+                                        UPDATE customers 
+                                        SET customer_code = :code, name = :name, phone_backup = :p2, tel = :t1, address = :addr, gender = :gender, id_card = :id_card
+                                        WHERE customer_id = :cid
+                                    """), {"code": cust_code, "name": name, "p2": p2, "t1": t1, "addr": addr, "gender": gender, "id_card": id_card, "cid": matched_cid})
+                                    cid = matched_cid
+                                    total_cust_updated += 1
+                                else:
+                                    res = conn.execute(text("""
+                                        INSERT INTO customers (customer_code, name, gender, id_card, phone, phone_backup, tel, address, created_at)
+                                        VALUES (:code, :name, :gender, :id_card, :p1, :p2, :t1, :addr, :created_at)
+                                        RETURNING customer_id
+                                    """), {"code": cust_code, "name": name, "gender": gender, "id_card": id_card, "p1": p1, "p2": p2, "t1": t1, "addr": addr, "created_at": now_str})
+                                    cid = res.fetchone()[0]
+                                    if cust_code:
+                                        code_to_id[cust_code] = cid
+                                    if p1:
+                                        phone_to_id[p1] = cid
+                                    total_cust_added += 1
 
-                st.success(f"🎉 雲端匯入完成！成功整合 **{total_cust}** 位客戶與 **{total_orders}** 筆購買軌跡！")
+                                for col_name, val in row.items():
+                                    if pd.notna(val) and str(val).strip() != "":
+                                        col_str = str(col_name)
+                                        val_str = str(val).strip()
+                                        if (col_str.startswith("購") or col_str.startswith("Unnamed")) and (("-" in val_str) or ("/" in val_str) or val_str.startswith("A") or val_str.startswith("B")):
+                                            order_chan, order_date, raw_code = parse_date_code(val_str, default_channel)
+                                            if (cid, raw_code) not in existing_order_set:
+                                                conn.execute(text("""
+                                                    INSERT INTO orders (customer_id, channel, product, amount, order_date, raw_date_code, status, order_notes)
+                                                    VALUES (:cid, :chan, '常態訂購品項', 0, :odate, :code, '歷史完成', :notes)
+                                                """), {"cid": cid, "chan": order_chan, "odate": order_date, "code": raw_code, "notes": f"原始代碼: {raw_code}"})
+                                                existing_order_set.add((cid, raw_code))
+                                                total_orders_added += 1
+
+                progress_bar.progress(1.0)
+                status_text.empty()
+                st.success(f"🎉 雲端匯入大成功！全新建檔 **{total_cust_added}** 位、更新補齊 **{total_cust_updated}** 位客戶，並成功寫入 **{total_orders_added}** 筆購買軌跡！")
         except Exception as e:
             st.error(f"匯入錯誤：{e}")

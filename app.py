@@ -5,7 +5,7 @@ from datetime import datetime, date, timedelta
 import io
 import re
 
-# --- 0. 設定頁面配置與「終極暴力強制放大」CSS ---
+# --- 0. 設定頁面配置與「終極核彈級字體穿透」CSS ---
 st.set_page_config(page_title="有其田 客服 CRM 系統", layout="wide", page_icon="🌾")
 
 st.markdown("""
@@ -17,34 +17,47 @@ st.markdown("""
     }
 
     /* =========================================
-       🔥 終極解法：針對 Streamlit 分頁按鈕強制放大 45px 與拉開距離
+       🛑 終極暴力破解 Streamlit Tabs (分頁按鈕)
        ========================================= */
-    /* 1. 針對 role="tab" 強制加高按鈕、拉開右側距離 */
+    /* 1. 暴力拉開分頁之間的距離 */
+    div[data-testid="stTabs"] > div[data-baseweb="tab-list"] {
+        gap: 60px !important; 
+        margin-bottom: 30px !important;
+    }
+
+    /* 2. 暴力解除按鈕高度限制，給予極大空間容納 45px 字體 */
     div[data-testid="stTabs"] button[role="tab"] {
-        margin-right: 40px !important;  /* 絕對拉開按鈕之間的距離 */
-        padding: 10px 20px !important;
-        min-height: 90px !important;    /* 必須加高，否則 45px 的字會被切掉 */
+        min-height: 100px !important;
         height: auto !important;
+        padding: 10px 20px !important;
+        background-color: #f7fafc !important;
+        border-radius: 16px 16px 0 0 !important;
+        border: 2px solid #e2e8f0 !important;
+        border-bottom: none !important;
     }
 
-    /* 2. 針對 role="tab" 裡面的所有文字標籤強制設定 45px 粗體 */
+    /* 3. 無視任何層級，直接鎖定所有 Tab 內的 p、span、div 強制放大到 45px */
+    .stTabs button p, 
+    .stTabs button span, 
+    .stTabs button div,
     div[data-testid="stTabs"] button[role="tab"] * {
-        font-size: 45px !important;     /* 絕對放大到 45px */
-        font-weight: 900 !important;    /* 最粗體 */
-        color: #4a5568 !important;      /* 預設深灰色 */
-        white-space: nowrap !important; /* 確保文字不會折行 */
-        line-height: 1.3 !important;
+        font-size: 45px !important;
+        font-weight: 900 !important;
+        color: #4a5568 !important;
+        line-height: 100px !important; /* 撐高行距避免被切字 */
+        margin: 0 !important;
     }
 
-    /* 3. 被選中時的分頁按鈕樣式 (變成紅色，跟最上方的感覺一樣明顯) */
+    /* 4. 被選中時的樣式 (藍色底 + 紅色字) */
     div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
-        border-top: 8px solid #e53e3e !important; 
-        background-color: #fff5f5 !important;
+        background-color: #ebf8ff !important;
+        border-top: 8px solid #e53e3e !important;
     }
     div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] * {
         color: #e53e3e !important; /* 選中時文字變紅色，超級清晰 */
     }
     /* ========================================= */
+
 
     /* 大標題與副標題 */
     h1 { font-size: 45px !important; font-weight: 900 !important; margin-bottom: 24px !important; }

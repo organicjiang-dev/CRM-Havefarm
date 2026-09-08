@@ -5,7 +5,7 @@ from datetime import datetime, date, timedelta
 import io
 import re
 
-# --- 0. 設定頁面配置與「終極暴力強制放大」CSS ---
+# --- 0. 設定頁面配置與「終極核彈級字體穿透」CSS ---
 st.set_page_config(page_title="有其田 客服 CRM 系統", layout="wide", page_icon="🌾")
 
 st.markdown("""
@@ -16,30 +16,35 @@ st.markdown("""
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif !important;
     }
 
-    /* 🌟 針對 Streamlit 分頁容器進行強制撐開 */
+    /* 🌟 1. 針對 Streamlit 分頁容器進行強制撐開，確保按鈕不擠在一起 */
     div[data-testid="stTabs"] > div[data-baseweb="tab-list"],
     div[data-testid="stTabs"] > div > div[role="tablist"] {
-        gap: 60px !important; /* 絕對拉開分頁按鈕之間的距離 */
-        margin-bottom: 30px !important;
+        gap: 50px !important; 
+        margin-bottom: 40px !important;
     }
 
-    /* 🌟 按鈕外觀與高度 (解除高度限制，確保 45px 字體放得下) */
+    /* 🌟 2. 解除按鈕的高度限制，讓它能容納 45px 的巨型文字 */
     div[data-testid="stTabs"] button[data-baseweb="tab"] {
         margin-right: 20px !important;
-        padding: 15px 30px !important;
+        padding: 10px 20px !important;
         background-color: #f7fafc !important;
         border-radius: 16px 16px 0 0 !important;
         border: 2px solid #e2e8f0 !important;
         border-bottom: none !important;
-        height: auto !important;      /* 解除高度限制 */
-        min-height: 85px !important;  /* 保證按鈕夠高 */
+        height: auto !important;      /* 絕對解除高度限制 */
+        min-height: 90px !important;  /* 把按鈕本身加高 */
     }
 
-    /* 🌟 終極穿透：指定內部文字 p 標籤強制放大至 45px */
-    div[data-testid="stTabs"] button[data-baseweb="tab"] p {
-        font-size: 45px !important; /* 絕對放大至 45px */
+    /* 🌟 3. 核彈級穿透：針對 Streamlit 最深層的 Markdown 標籤強制放大至 45px */
+    div[data-testid="stTabs"] button[data-baseweb="tab"],
+    div[data-testid="stTabs"] button[data-baseweb="tab"] div,
+    div[data-testid="stTabs"] button[data-baseweb="tab"] span,
+    div[data-testid="stTabs"] button[data-baseweb="tab"] p,
+    div[data-testid="stTabs"] button[data-baseweb="tab"] div[data-testid="stMarkdownContainer"],
+    div[data-testid="stTabs"] button[data-baseweb="tab"] div[data-testid="stMarkdownContainer"] > p {
+        font-size: 45px !important;  /* 絕對放大至 45px (與標題同級) */
         font-weight: 900 !important; /* 最粗體 */
-        line-height: 1.2 !important;
+        line-height: 1.3 !important;
         color: #4a5568 !important;
         margin: 0 !important;
         padding: 0 !important;
@@ -50,12 +55,14 @@ st.markdown("""
         background-color: #ebf8ff !important;
         border-top: 8px solid #3182ce !important;
     }
-    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] p {
-        color: #2b6cb0 !important; /* 點選後變為藍色 */
+    /* 選中時的文字顏色強制變藍色 */
+    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"],
+    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] * {
+        color: #2b6cb0 !important; 
     }
 
     /* 大標題與副標題 */
-    h1 { font-size: 42px !important; font-weight: 900 !important; margin-bottom: 24px !important; }
+    h1 { font-size: 45px !important; font-weight: 900 !important; margin-bottom: 24px !important; }
     h2, h3 { font-size: 34px !important; font-weight: 800 !important; margin-top: 20px !important; margin-bottom: 16px !important; }
     h4, h5 { font-size: 28px !important; font-weight: 700 !important; margin-top: 16px !important; color: #2b6cb0 !important; }
 

@@ -5,7 +5,7 @@ from datetime import datetime, date, timedelta
 import io
 import re
 
-# --- 0. 設定頁面配置與「終極精準打擊 45px」CSS ---
+# --- 0. 設定頁面配置與「終極核彈破壞」CSS ---
 st.set_page_config(page_title="有其田 客服 CRM 系統", layout="wide", page_icon="🌾")
 
 st.markdown("""
@@ -17,37 +17,49 @@ st.markdown("""
     }
 
     /* =========================================
-       🔥 針對 Streamlit 分頁標籤的精準覆寫 
+       💣 終極核彈指令：炸毀 Streamlit 原廠按鈕限制
        ========================================= */
-    /* 1. 拉開按鈕之間的距離，並解除高度限制 */
+    
+    /* 1. 炸毀外層容器的佈局限制，強制拉開距離 */
+    div[data-testid="stTabs"] > div[data-baseweb="tab-list"] {
+        gap: 50px !important; 
+        margin-bottom: 30px !important;
+    }
+
+    /* 2. 炸毀按鈕本身的限制，強制加大加高 */
     div[data-testid="stTabs"] button[data-baseweb="tab"] {
-        margin-right: 40px !important; 
-        min-height: 90px !important; 
-        height: auto !important;
-        padding: 10px 20px !important;
+        all: revert !important; /* 🌟 殺死所有原廠預設樣式 */
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin-right: 30px !important;
+        padding: 15px 30px !important;
+        min-height: 90px !important;
         background-color: #f7fafc !important;
-        border: 2px solid #e2e8f0 !important;
+        border-radius: 16px 16px 0 0 !important;
+        border: 3px solid #e2e8f0 !important;
         border-bottom: none !important;
-        border-radius: 12px 12px 0 0 !important;
+        cursor: pointer !important;
     }
 
-    /* 2. 精準鎖定隱藏的 <p> 標籤，絕對放大到 45px 粗體 */
-    div[data-testid="stTabs"] button[data-baseweb="tab"] p {
-        font-size: 45px !important;
+    /* 3. 炸毀文字層的限制，絕對強制 45px */
+    div[data-testid="stTabs"] button[data-baseweb="tab"] * {
+        all: unset !important; /* 🌟 殺死文字的鎖定限制 */
+        font-size: 45px !important; 
         font-weight: 900 !important;
+        font-family: inherit !important;
         color: #4a5568 !important;
+        white-space: nowrap !important;
         line-height: 1.3 !important;
-        margin: 0 !important;
-        padding: 0 !important;
     }
 
-    /* 3. 被選中時的樣式 (紅線 + 紅字) */
+    /* 4. 被選中時的樣式 (紅線 + 紅字) */
     div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
-        border-top: 8px solid #e53e3e !important;
         background-color: #fff5f5 !important;
+        border-top: 10px solid #e53e3e !important;
     }
-    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] p {
-        color: #e53e3e !important; 
+    div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] * {
+        color: #e53e3e !important;
     }
     /* ========================================= */
 
@@ -329,7 +341,8 @@ def delete_order(order_id):
     execute_query("DELETE FROM orders WHERE order_id = :oid", {"oid": order_id})
 
 # --- 4. 主介面排版 ---
-st.title("🌾 有其田 客服管理系統 (CRM - 雲端版)")
+# 🚨 這是我們的「追蹤劑大標題」，用來確認雲端主機有沒有死機！
+st.title("🌾 有其田 客服管理系統 (🌟CRM 旗艦升級版🌟)")
 
 tab1, tab2, tab3, tab4, tab6, tab5 = st.tabs([
     "🔍 舊客速查與編輯", 
@@ -516,7 +529,7 @@ with tab2:
         with nr2_1:
             n_r2_name = st.text_input("第二收件人姓名 (送禮對象)")
         with nr2_2:
-            n_r2_phone = st.text_input("第二收件人手機 (送禮電話)")
+            n_r2_phone = st.text_input("第二收件人手機 (送禮電話)", value=cr2_phone if cr2_phone else "")
         n_r2_addr = st.text_input("第二收件地址 (送禮地址)")
 
         st.markdown("##### 📦 首次訂購品項（選填）")

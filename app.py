@@ -5,41 +5,138 @@ from datetime import datetime, date, timedelta
 import io
 import re
 
-# --- 0. 設定頁面配置與「物理放大降維打擊」CSS ---
+# --- 0. 設定頁面配置與「解除 Streamlit 防縮小」CSS ---
 st.set_page_config(page_title="有其田 客服 CRM 系統", layout="wide", page_icon="🌾")
 
-# 🚨 採用無空白行真空壓縮，防止 Streamlit 解析器切斷 CSS
 st.markdown("""
 <style>
-html, body, [class*="css"] { font-size: 24px !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif !important; }
-div[data-testid="stTabs"] { overflow: visible !important; }
-div[data-testid="stTabs"] > div { overflow: visible !important; }
-div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { gap: 50px !important; padding-top: 35px !important; padding-bottom: 10px !important; }
+    /* 全域基準字體放大 */
+    html, body, [class*="css"] {
+        font-size: 24px !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif !important;
+    }
 
-/* 🔥 核心魔法：不改 font-size，直接將整顆按鈕「物理放大 1.8 倍」 */
-div[data-testid="stTabs"] button[data-baseweb="tab"] { transform: scale(1.8) !important; transform-origin: left bottom !important; background-color: #f7fafc !important; border-radius: 6px 6px 0 0 !important; border: 1px solid #cbd5e0 !important; border-bottom: none !important; margin-right: 25px !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"] * { font-weight: 900 !important; color: #4a5568 !important; }
+    /* =========================================
+       🔥 針對 Streamlit 原生 .stTabs 進行完美破解
+       ========================================= */
+    
+    /* 1. 拉開按鈕之間的距離，並允許超出螢幕時可以滑動 */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 20px !important;
+        padding-bottom: 10px !important;
+        overflow-x: auto !important; /* 允許分頁橫向滑動，避免被強制擠壓 */
+    }
 
-/* 選中時的樣式 (紅線 + 紅字) */
-div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] { border-top: 4px solid #e53e3e !important; background-color: #fff5f5 !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] * { color: #e53e3e !important; }
+    /* 2. 設定按鈕本體的框線與背景，最重要的是 flex-shrink: 0 拒絕被系統縮小！ */
+    .stTabs [data-baseweb="tab"] {
+        height: 85px !important;
+        padding: 0px 35px !important;
+        background-color: #f7fafc !important;
+        border-radius: 12px 12px 0 0 !important;
+        border: 2px solid #cbd5e0 !important;
+        border-bottom: none !important;
+        flex-shrink: 0 !important; /* 🌟 核心魔法：拒絕系統自動縮小！ 🌟 */
+    }
 
-/* 其他介面放大設定 */
-h1 { font-size: 45px !important; font-weight: 900 !important; margin-bottom: 24px !important; }
-h2, h3 { font-size: 34px !important; font-weight: 800 !important; margin-top: 20px !important; margin-bottom: 16px !important; }
-h4, h5 { font-size: 28px !important; font-weight: 700 !important; margin-top: 16px !important; color: #2b6cb0 !important; }
-label, label p, [data-testid="stWidgetLabel"] p { font-size: 26px !important; font-weight: 900 !important; color: #1a1a1a !important; margin-bottom: 12px !important; }
-input[type="text"], input[type="password"], input[type="number"], select, div[data-baseweb="select"] > div { font-size: 26px !important; min-height: 70px !important; border-radius: 12px !important; border: 2px solid #718096 !important; padding: 12px 20px !important; background-color: #ffffff !important; font-weight: 700 !important; color: #1a202c !important; }
-div[data-baseweb="input"] { min-height: 70px !important; }
-div[data-baseweb="select"] span { font-size: 26px !important; font-weight: 700 !important; }
-textarea { font-size: 26px !important; min-height: 140px !important; line-height: 1.6 !important; border: 2px solid #718096 !important; }
-.stButton > button { min-height: 72px !important; font-size: 28px !important; font-weight: 900 !important; border-radius: 12px !important; padding: 0 40px !important; margin-top: 14px !important; border: 2px solid #3182ce !important; }
-[data-testid="stMetricValue"] { font-size: 46px !important; font-weight: 900 !important; color: #2b6cb0 !important; }
-[data-testid="stMetricLabel"] p { font-size: 26px !important; font-weight: 800 !important; }
-details summary p, details summary span { font-size: 26px !important; font-weight: 800 !important; color: #2c5282 !important; }
-div[data-testid="stDataFrame"] { font-size: 22px !important; }
-div[data-testid="column"] { padding: 0 16px !important; }
-hr { margin: 36px 0 !important; border: 0 !important; border-top: 3px solid #cbd5e0 !important; }
+    /* 3. 精準鎖定文字容器，放大至 35px (最適合的巨型尺寸) */
+    .stTabs [data-baseweb="tab"] [data-testid="stMarkdownContainer"] p {
+        font-size: 35px !important;  
+        font-weight: 900 !important;
+        color: #4a5568 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* 4. 被選中時的樣式 (紅線 + 紅字) */
+    .stTabs [aria-selected="true"] {
+        background-color: #fff5f5 !important;
+        border-top: 8px solid #e53e3e !important;
+    }
+    .stTabs [aria-selected="true"] [data-testid="stMarkdownContainer"] p {
+        color: #e53e3e !important; /* 點選時文字變紅色 */
+    }
+    /* ========================================= */
+
+    /* 大標題與副標題 */
+    h1 { font-size: 45px !important; font-weight: 900 !important; margin-bottom: 24px !important; }
+    h2, h3 { font-size: 34px !important; font-weight: 800 !important; margin-top: 20px !important; margin-bottom: 16px !important; }
+    h4, h5 { font-size: 28px !important; font-weight: 700 !important; margin-top: 16px !important; color: #2b6cb0 !important; }
+
+    /* 輸入欄位標籤文字 (Label) */
+    label, label p, [data-testid="stWidgetLabel"] p {
+        font-size: 26px !important;
+        font-weight: 900 !important;
+        color: #1a1a1a !important;
+        margin-bottom: 12px !important;
+    }
+
+    /* 所有輸入框、下拉選單格子「極致加高加大」 */
+    input[type="text"], input[type="password"], input[type="number"], select, div[data-baseweb="select"] > div {
+        font-size: 26px !important;
+        min-height: 70px !important;
+        border-radius: 12px !important;
+        border: 2px solid #718096 !important;
+        padding: 12px 20px !important;
+        background-color: #ffffff !important;
+        font-weight: 700 !important;
+        color: #1a202c !important;
+    }
+    
+    /* 日期選擇器專屬高度 */
+    div[data-baseweb="input"] {
+        min-height: 70px !important;
+    }
+
+    /* 下拉選單內部選項字體 */
+    div[data-baseweb="select"] span {
+        font-size: 26px !important;
+        font-weight: 700 !important;
+    }
+
+    /* 多行備註文字框加大 */
+    textarea {
+        font-size: 26px !important;
+        min-height: 140px !important;
+        line-height: 1.6 !important;
+        border: 2px solid #718096 !important;
+    }
+
+    /* 表單按鈕加大 */
+    .stButton > button {
+        min-height: 72px !important;
+        font-size: 28px !important;
+        font-weight: 900 !important;
+        border-radius: 12px !important;
+        padding: 0 40px !important;
+        margin-top: 14px !important;
+        border: 2px solid #3182ce !important;
+    }
+
+    /* 關鍵數據指標卡片 (Metrics) */
+    [data-testid="stMetricValue"] {
+        font-size: 46px !important;
+        font-weight: 900 !important;
+        color: #2b6cb0 !important;
+    }
+    [data-testid="stMetricLabel"] p {
+        font-size: 26px !important;
+        font-weight: 800 !important;
+    }
+
+    /* 展開摺疊面板 (Expander) 標題加大 */
+    details summary p, details summary span {
+        font-size: 26px !important;
+        font-weight: 800 !important;
+        color: #2c5282 !important;
+    }
+
+    /* 表格字體放大 */
+    div[data-testid="stDataFrame"] {
+        font-size: 22px !important;
+    }
+
+    div[data-testid="column"] { padding: 0 16px !important; }
+    hr { margin: 36px 0 !important; border: 0 !important; border-top: 3px solid #cbd5e0 !important; }
 </style>
 """, unsafe_allow_html=True)
 

@@ -140,12 +140,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 1. 客服人員帳號密碼設定 ---
-AUTH_USERS = {
-    "admin": "havefarm_29174887",
-    "service": "havefarm_29174887",
-    "service02": "29174887_organic"
-}
+# --- 1. 客服人員帳號密碼設定 (安全升級：從雲端金鑰讀取) ---
+AUTH_USERS = st.secrets["crm_users"]
 
 def check_login():
     if "logged_in" not in st.session_state:

@@ -4,175 +4,140 @@ from sqlalchemy import create_engine, text
 from datetime import datetime, date, timedelta
 import io
 import re
+import random
+import smtplib
+from email.mime.text import MIMEText
 
-# --- 0. 設定頁面配置與「解除 Streamlit 防縮小」CSS ---
+# --- 0. 設定頁面配置與「物理放大降維打擊」CSS ---
 st.set_page_config(page_title="有其田 客服 CRM 系統", layout="wide", page_icon="🌾")
 
+# 🚨 採用無空白行真空壓縮，防止 Streamlit 解析器切斷 CSS
 st.markdown("""
 <style>
-    /* 全域基準字體放大 */
-    html, body, [class*="css"] {
-        font-size: 24px !important;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif !important;
-    }
-
-    /* =========================================
-       🔥 針對 Streamlit 原生 .stTabs 進行完美破解
-       ========================================= */
-    
-    /* 1. 拉開按鈕之間的距離，並允許超出螢幕時可以滑動 */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 20px !important;
-        padding-bottom: 10px !important;
-        overflow-x: auto !important; /* 允許分頁橫向滑動，避免被強制擠壓 */
-    }
-
-    /* 2. 設定按鈕本體的框線與背景，最重要的是 flex-shrink: 0 拒絕被系統縮小！ */
-    .stTabs [data-baseweb="tab"] {
-        height: 85px !important;
-        padding: 0px 35px !important;
-        background-color: #f7fafc !important;
-        border-radius: 12px 12px 0 0 !important;
-        border: 2px solid #cbd5e0 !important;
-        border-bottom: none !important;
-        flex-shrink: 0 !important; /* 🌟 核心魔法：拒絕系統自動縮小！ 🌟 */
-    }
-
-    /* 3. 精準鎖定文字容器，放大至 35px (最適合的巨型尺寸) */
-    .stTabs [data-baseweb="tab"] [data-testid="stMarkdownContainer"] p {
-        font-size: 35px !important;  
-        font-weight: 900 !important;
-        color: #4a5568 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-
-    /* 4. 被選中時的樣式 (紅線 + 紅字) */
-    .stTabs [aria-selected="true"] {
-        background-color: #fff5f5 !important;
-        border-top: 8px solid #e53e3e !important;
-    }
-    .stTabs [aria-selected="true"] [data-testid="stMarkdownContainer"] p {
-        color: #e53e3e !important; /* 點選時文字變紅色 */
-    }
-    /* ========================================= */
-
-    /* 大標題與副標題 */
-    h1 { font-size: 45px !important; font-weight: 900 !important; margin-bottom: 24px !important; }
-    h2, h3 { font-size: 34px !important; font-weight: 800 !important; margin-top: 20px !important; margin-bottom: 16px !important; }
-    h4, h5 { font-size: 28px !important; font-weight: 700 !important; margin-top: 16px !important; color: #2b6cb0 !important; }
-
-    /* 輸入欄位標籤文字 (Label) */
-    label, label p, [data-testid="stWidgetLabel"] p {
-        font-size: 26px !important;
-        font-weight: 900 !important;
-        color: #1a1a1a !important;
-        margin-bottom: 12px !important;
-    }
-
-    /* 所有輸入框、下拉選單格子「極致加高加大」 */
-    input[type="text"], input[type="password"], input[type="number"], select, div[data-baseweb="select"] > div {
-        font-size: 26px !important;
-        min-height: 70px !important;
-        border-radius: 12px !important;
-        border: 2px solid #718096 !important;
-        padding: 12px 20px !important;
-        background-color: #ffffff !important;
-        font-weight: 700 !important;
-        color: #1a202c !important;
-    }
-    
-    /* 日期選擇器專屬高度 */
-    div[data-baseweb="input"] {
-        min-height: 70px !important;
-    }
-
-    /* 下拉選單內部選項字體 */
-    div[data-baseweb="select"] span {
-        font-size: 26px !important;
-        font-weight: 700 !important;
-    }
-
-    /* 多行備註文字框加大 */
-    textarea {
-        font-size: 26px !important;
-        min-height: 140px !important;
-        line-height: 1.6 !important;
-        border: 2px solid #718096 !important;
-    }
-
-    /* 表單按鈕加大 */
-    .stButton > button {
-        min-height: 72px !important;
-        font-size: 28px !important;
-        font-weight: 900 !important;
-        border-radius: 12px !important;
-        padding: 0 40px !important;
-        margin-top: 14px !important;
-        border: 2px solid #3182ce !important;
-    }
-
-    /* 關鍵數據指標卡片 (Metrics) */
-    [data-testid="stMetricValue"] {
-        font-size: 46px !important;
-        font-weight: 900 !important;
-        color: #2b6cb0 !important;
-    }
-    [data-testid="stMetricLabel"] p {
-        font-size: 26px !important;
-        font-weight: 800 !important;
-    }
-
-    /* 展開摺疊面板 (Expander) 標題加大 */
-    details summary p, details summary span {
-        font-size: 26px !important;
-        font-weight: 800 !important;
-        color: #2c5282 !important;
-    }
-
-    /* 表格字體放大 */
-    div[data-testid="stDataFrame"] {
-        font-size: 22px !important;
-    }
-
-    div[data-testid="column"] { padding: 0 16px !important; }
-    hr { margin: 36px 0 !important; border: 0 !important; border-top: 3px solid #cbd5e0 !important; }
+html, body, [class*="css"] { font-size: 24px !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif !important; }
+div[data-testid="stTabs"] { overflow: visible !important; }
+div[data-testid="stTabs"] > div { overflow: visible !important; }
+div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { gap: 50px !important; padding-top: 35px !important; padding-bottom: 10px !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"] { transform: scale(1.8) !important; transform-origin: left bottom !important; background-color: #f7fafc !important; border-radius: 6px 6px 0 0 !important; border: 1px solid #cbd5e0 !important; border-bottom: none !important; margin-right: 25px !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"] * { font-weight: 900 !important; color: #4a5568 !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] { border-top: 4px solid #e53e3e !important; background-color: #fff5f5 !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] * { color: #e53e3e !important; }
+h1 { font-size: 45px !important; font-weight: 900 !important; margin-bottom: 24px !important; }
+h2, h3 { font-size: 34px !important; font-weight: 800 !important; margin-top: 20px !important; margin-bottom: 16px !important; }
+h4, h5 { font-size: 28px !important; font-weight: 700 !important; margin-top: 16px !important; color: #2b6cb0 !important; }
+label, label p, [data-testid="stWidgetLabel"] p { font-size: 26px !important; font-weight: 900 !important; color: #1a1a1a !important; margin-bottom: 12px !important; }
+input[type="text"], input[type="password"], input[type="number"], select, div[data-baseweb="select"] > div { font-size: 26px !important; min-height: 70px !important; border-radius: 12px !important; border: 2px solid #718096 !important; padding: 12px 20px !important; background-color: #ffffff !important; font-weight: 700 !important; color: #1a202c !important; }
+div[data-baseweb="input"] { min-height: 70px !important; }
+div[data-baseweb="select"] span { font-size: 26px !important; font-weight: 700 !important; }
+textarea { font-size: 26px !important; min-height: 140px !important; line-height: 1.6 !important; border: 2px solid #718096 !important; }
+.stButton > button { min-height: 72px !important; font-size: 28px !important; font-weight: 900 !important; border-radius: 12px !important; padding: 0 40px !important; margin-top: 14px !important; border: 2px solid #3182ce !important; }
+[data-testid="stMetricValue"] { font-size: 46px !important; font-weight: 900 !important; color: #2b6cb0 !important; }
+[data-testid="stMetricLabel"] p { font-size: 26px !important; font-weight: 800 !important; }
+details summary p, details summary span { font-size: 26px !important; font-weight: 800 !important; color: #2c5282 !important; }
+div[data-testid="stDataFrame"] { font-size: 22px !important; }
+div[data-testid="column"] { padding: 0 16px !important; }
+hr { margin: 36px 0 !important; border: 0 !important; border-top: 3px solid #cbd5e0 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 1. 客服人員帳號密碼設定 (安全升級：從雲端金鑰讀取) ---
-AUTH_USERS = st.secrets["crm_users"]
+# --- 1. 自動發送驗證信模組 ---
+def send_auth_code(to_email, code):
+    sender = st.secrets["EMAIL_SENDER"]
+    pwd = st.secrets["EMAIL_PASSWORD"].replace(" ", "") # 確保移除多餘空白
+    
+    msg = MIMEText(f"您好，\n\n您的有其田 CRM 系統登入驗證碼為：【 {code} 】\n\n請在系統畫面輸入此驗證碼以完成登入。\n若非本人操作，請立刻回報管理員。", 'plain', 'utf-8')
+    msg['Subject'] = "【有其田 CRM】系統安全登入驗證碼"
+    msg['From'] = sender
+    msg['To'] = to_email
+    
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(sender, pwd)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        st.error(f"發送驗證碼信件失敗，請聯絡系統管理員。錯誤細節：{e}")
+        return False
 
+# --- 2. 雙重認證登入系統 ---
 def check_login():
+    # 初始化 Session State
     if "logged_in" not in st.session_state:
         st.session_state.logged_in = False
         st.session_state.username = ""
+        st.session_state.pwd_verified = False
+        st.session_state.auth_code = ""
 
-    if not st.session_state.logged_in:
-        col_space1, col_login, col_space2 = st.columns([1, 2, 1])
-        with col_login:
-            st.markdown("<br><br>", unsafe_allow_html=True)
-            st.markdown("## 🌾 有其田 客服系統 - 登入驗證")
-            st.info("🔒 為保護客戶個資安全，請輸入內部客服人員帳號與密碼以進入系統。")
+    if st.session_state.logged_in:
+        return True
 
+    col_space1, col_login, col_space2 = st.columns([1, 2, 1])
+    with col_login:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.markdown("## 🌾 有其田 客服系統 - 登入驗證")
+
+        # 階段 1：輸入帳號密碼
+        if not st.session_state.pwd_verified:
+            st.info("🔒 為保護客戶個資安全，請輸入內部客服人員帳號與密碼。")
             with st.form("login_form"):
                 user_input = st.text_input("客服人員帳號", placeholder="請輸入帳號（例如: admin 或 service）").strip()
                 pass_input = st.text_input("登入密碼", type="password", placeholder="請輸入密碼").strip()
-                login_btn = st.form_submit_button("🔐 登入系統")
+                login_btn = st.form_submit_button("🔐 進行身分驗證")
 
                 if login_btn:
+                    AUTH_USERS = st.secrets["crm_users"]
                     if user_input in AUTH_USERS and AUTH_USERS[user_input] == pass_input:
-                        st.session_state.logged_in = True
                         st.session_state.username = user_input
-                        st.success("✅ 驗證成功，正在進入系統...")
-                        st.rerun()
+                        st.session_state.pwd_verified = True
+                        
+                        # 產生 6 位數亂數驗證碼
+                        code = str(random.randint(100000, 999999))
+                        st.session_state.auth_code = code
+                        
+                        # 找出該帳號對應的信箱並發送信件
+                        RECEIVER_EMAILS = st.secrets["crm_emails"]
+                        to_email = RECEIVER_EMAILS.get(user_input, st.secrets["EMAIL_SENDER"]) # 預設寄給發信人
+                        
+                        with st.spinner("系統正在發送驗證碼至您的信箱，請稍候..."):
+                            if send_auth_code(to_email, code):
+                                # 為了保護隱私，只顯示部分信箱字元
+                                masked_email = f"{to_email[:3]}...@{to_email.split('@')[1]}"
+                                st.success(f"✅ 帳密正確！驗證碼已發送至信箱：{masked_email}")
+                                st.rerun()
+                            else:
+                                st.session_state.pwd_verified = False
                     else:
                         st.error("❌ 帳號或密碼錯誤，請重新輸入！")
-        return False
-    return True
+            return False
+
+        # 階段 2：輸入 6 位數驗證碼
+        else:
+            st.warning("📧 系統已發送【6位數驗證碼】至設定的電子信箱，請前往收信並填寫。")
+            with st.form("2fa_form"):
+                code_input = st.text_input("請輸入 6 位數驗證碼", placeholder="例如：123456").strip()
+                verify_btn = st.form_submit_button("🚀 確認並登入系統")
+                cancel_btn = st.form_submit_button("返回重新登入")
+
+                if verify_btn:
+                    if code_input == st.session_state.auth_code:
+                        st.session_state.logged_in = True
+                        st.success("✅ 雙重驗證成功，正在進入系統...")
+                        st.rerun()
+                    else:
+                        st.error("❌ 驗證碼錯誤，請重新輸入！")
+                
+                if cancel_btn:
+                    # 返回上一層重新輸入帳號密碼
+                    st.session_state.pwd_verified = False
+                    st.session_state.auth_code = ""
+                    st.rerun()
+            return False
 
 if not check_login():
     st.stop()
+
+# ==================== 以下為原本的系統主要功能 (完全保留) ====================
 
 with st.sidebar:
     st.markdown(f"### 👤 目前使用者：`:blue[{st.session_state.username}]`")
@@ -180,6 +145,8 @@ with st.sidebar:
     if st.button("🚪 登出系統"):
         st.session_state.logged_in = False
         st.session_state.username = ""
+        st.session_state.pwd_verified = False
+        st.session_state.auth_code = ""
         st.rerun()
 
 # --- 2. 雲端資料庫連線 (Supabase PostgreSQL) ---

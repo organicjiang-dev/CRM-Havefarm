@@ -11,7 +11,7 @@ from email.mime.text import MIMEText
 # --- 0. 設定頁面配置與「物理放大降維打擊」CSS ---
 st.set_page_config(page_title="有其田 客服 CRM 系統", layout="wide", page_icon="🌾")
 
-# 🔥 更新顧客來源選項 (Phase 1 廣告追蹤)
+# 🔥 顧客來源選項 (Phase 1 廣告追蹤)
 SOURCES_LIST = [
     "未指定 / 自然流量", 
     "FB 再行銷", 
@@ -657,7 +657,7 @@ with tab3:
         st.info("⚠️ 查無符合條件的客戶。")
 
 # ==========================================
-# TAB 4: 客戶名冊總表 (升級表格直接編輯與 XLSX 匯出)
+# TAB 4: 客戶名冊總表
 # ==========================================
 with tab4:
     st.subheader("📊 客戶名冊總表")
@@ -666,7 +666,6 @@ with tab4:
     with col_filter:
         tab4_search = st.text_input("🔍 在總表中搜尋 (請輸入姓名、手機號碼或客戶代號)：", key="tab4_search").strip()
 
-    # SQL 語法更新：加入 STRING_AGG 撈取所有「歷史訂購明細」供報表匯出
     df_all = read_query("""
         SELECT 
             c.customer_id,
@@ -700,26 +699,26 @@ with tab4:
         else:
             df_filtered = df_all
 
-        # 為了讓資料庫能正確對應修改，我們將 customer_id 設為索引 (隱藏起來)
         df_filtered_idx = df_filtered.set_index("customer_id")
         
-        # 畫面顯示的欄位 (隱藏太長的明細，明細只保留在匯出的 Excel 中)
         display_df = df_filtered_idx.drop(columns=["歷史訂購紀錄明細"])
 
-        st.markdown("💡 **小提示：您可以直接點擊下方表格的欄位進行文字修改。修改完畢後，請務必點擊下方的「儲存表格修改」按鈕。**")
+        # 🔥 精簡化提示文字
+        st.markdown("💡 **小提示：可以點擊欄位進行編輯。修改完畢，務必點擊下方的「儲存」按鈕。**")
         
-        # 🔥 神級功能：讓表格變成可以直接編輯的 Data Editor
+        # 🔥 神級功能：直接在表格上修改資料，並且透過 hide_index=True 隱藏無意義的 customer_id
         edited_df = st.data_editor(
             display_df, 
             use_container_width=True,
-            disabled=["客戶代號", "最後購買管道", "總購買次數", "歷史消費金額", "最後購買日"] # 這些是由系統計算的防呆欄位，禁止手動修改
+            hide_index=True,
+            disabled=["客戶代號", "最後購買管道", "總購買次數", "歷史消費金額", "最後購買日"]
         )
         
-        if st.button("💾 儲存表格上的修改", type="primary"):
+        # 🔥 按鈕文字簡化
+        if st.button("💾 儲存", type="primary"):
             changes_count = 0
             for cid, row in edited_df.iterrows():
                 orig_row = display_df.loc[cid]
-                # 比對是否有修改
                 if not row.equals(orig_row):
                     execute_query("""
                         UPDATE customers 
@@ -740,10 +739,8 @@ with tab4:
 
         st.markdown("---")
         
-        # 🔥 全新升級：完美匯出包含「所有歷史訂單」的 Excel (.xlsx) 檔案
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            # 匯出時包含原本隱藏的 "歷史訂購紀錄明細"
             df_filtered.drop(columns=["customer_id"]).to_excel(writer, index=False, sheet_name='客戶名冊')
         excel_data = output.getvalue()
         

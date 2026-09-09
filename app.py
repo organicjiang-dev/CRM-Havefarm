@@ -843,9 +843,14 @@ with tab5:
                             if pd.notna(val) and str(val).strip() != "":
                                 col_str = str(col_name)
                                 val_str = str(val).strip()
-                                if (col_str.startswith("購") or col_str.startswith("Unnamed")) and (("-" in val_str) or ("/" in val_str) or val_str.startswith("A") or val_str.startswith("B")):
-                                    o_chan, o_date, r_code = parse_date_code(val_str, default_channel)
-                                    row_orders.append((o_chan, o_date, r_code))
+                                
+                                # 🔥 修正核心：只要欄位名稱包含「商品」兩字，系統就直接跳過不抓取！
+                                # 只保留純「購1、購2」或是 Excel 隱藏的 Unnamed 欄位
+                                if (col_str.startswith("購") and "商品" not in col_str) or col_str.startswith("Unnamed"):
+                                    # 再次確認內容格式是否包含日期代碼特徵 (A, B, L 或符號)
+                                    if (("-" in val_str) or ("/" in val_str) or val_str.upper().startswith("A") or val_str.upper().startswith("B") or val_str.upper().startswith("L")):
+                                        o_chan, o_date, r_code = parse_date_code(val_str, default_channel)
+                                        row_orders.append((o_chan, o_date, r_code))
 
                         matched_cid = None
                         if cust_code and cust_code in code_to_id:

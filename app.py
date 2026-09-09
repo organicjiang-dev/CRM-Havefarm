@@ -230,12 +230,9 @@ def search_customers_accurate(query_str):
         return []
     clean_q = clean_phone(q)
     
-    conditions = ["name LIKE :q_name"]
-    params = {"q_name": f"%{q}%"}
-
-    if q.upper().startswith("CRM"):
-        conditions.append("customer_code LIKE :q_code")
-        params["q_code"] = f"%{q.upper()}%"
+    # 修正：直接將查詢字串無條件納入客戶代號搜尋，支援輸入 8761 就能找到 CRM008761
+    conditions = ["name LIKE :q_name", "customer_code LIKE :q_code"]
+    params = {"q_name": f"%{q}%", "q_code": f"%{q.upper()}%"}
 
     if clean_q and len(clean_q) >= 4:
         conditions.append("phone LIKE :q_phone")
@@ -334,7 +331,6 @@ def render_editable_orders(history_df, prefix_key):
                         st.rerun()
 
 # --- 4. 主介面排版 ---
-# 移除了 🌟CRM 旗艦升級版🌟 字樣
 st.title("🌾 有其田 客服管理系統")
 
 tab1, tab2, tab3, tab4, tab6, tab5 = st.tabs([
@@ -354,9 +350,10 @@ with tab1:
     
     col_search, _ = st.columns([3, 1])
     with col_search:
+        # 提示文字更新
         search_query = st.text_input(
-            "請輸入查詢關鍵字（客戶姓名、主要手機、備用手機、市話或 CRM 代號）", 
-            placeholder="例：蔡汶容、0912345678、08-9355127 或 CRM007122",
+            "請輸入查詢關鍵字（姓名、手機或代號）", 
+            placeholder="例：蔡汶容、0912345678、或輸入 8761 查詢 CRM008761",
             key="accurate_cust_search"
         ).strip()
 
@@ -632,12 +629,11 @@ with tab3:
 with tab4:
     st.subheader("📊 客戶名冊總表")
     
-    # 搜尋過濾功能
+    # 搜尋過濾功能 (修正：提示文字加入代號)
     col_filter, _ = st.columns([3, 1])
     with col_filter:
-        tab4_search = st.text_input("🔍 在總表中搜尋 (請輸入姓名或手機號碼)：", key="tab4_search").strip()
+        tab4_search = st.text_input("🔍 在總表中搜尋 (請輸入姓名、手機號碼或客戶代號)：", key="tab4_search").strip()
 
-    # 隱藏系統編號，加入管道與總金額
     df_all = read_query("""
         SELECT 
             c.customer_id,
@@ -663,17 +659,19 @@ with tab4:
     """)
 
     if not df_all.empty:
-        # 套用搜尋條件
+        # 修正：搜尋條件加入客戶代號，並轉大寫以支援模糊搜尋
         if tab4_search:
+            search_upper = tab4_search.upper()
             df_filtered = df_all[
                 df_all["姓名"].str.contains(tab4_search, na=False) | 
-                df_all["主要手機"].str.contains(tab4_search, na=False)
+                df_all["主要手機"].str.contains(tab4_search, na=False) |
+                df_all["客戶代號"].str.contains(search_upper, na=False)
             ]
         else:
             df_filtered = df_all
 
-        # 顯示時隱藏 customer_id 欄位
-        display_df = df_filtered.drop(columns=["customer_id"])
+        # 修正：顯示時隱藏 customer_id 與 三個第二收件人欄位，讓版面更清爽
+        display_df = df_filtered.drop(columns=["customer_id", "第二收件人", "第二收件電話", "第二收件地址"])
         st.dataframe(display_df, use_container_width=True)
         
         csv_data = display_df.to_csv(index=False).encode('utf-8-sig')
@@ -860,7 +858,6 @@ with tab5:
                                 col_str = str(col_name)
                                 val_str = str(val).strip()
                                 
-                                # 精準過濾包含「商品」的欄位
                                 if (col_str.startswith("購") and "商品" not in col_str) or col_str.startswith("Unnamed"):
                                     if (("-" in val_str) or ("/" in val_str) or val_str.upper().startswith("A") or val_str.upper().startswith("B") or val_str.upper().startswith("L")):
                                         o_chan, o_date, r_code = parse_date_code(val_str, default_channel)

@@ -11,8 +11,18 @@ from email.mime.text import MIMEText
 # --- 0. 設定頁面配置與「物理放大降維打擊」CSS ---
 st.set_page_config(page_title="有其田 客服 CRM 系統", layout="wide", page_icon="🌾")
 
-# 全域顧客來源選項 (Phase 1 廣告追蹤)
-SOURCES_LIST = ["未指定 / 自然流量", "FB/IG 廣告", "Google 關鍵字 (Search)", "Google PMAX 廣告", "Google Demand Gen", "LINE 官方帳號", "其他"]
+# 🔥 更新顧客來源選項 (Phase 1 廣告追蹤)
+SOURCES_LIST = [
+    "未指定 / 自然流量", 
+    "FB 再行銷", 
+    "FB 新客", 
+    "Google 關鍵字 (Search)", 
+    "Google PMAX 廣告", 
+    "Google Demand Gen", 
+    "LINE 官方帳號", 
+    "廣播", 
+    "其他"
+]
 
 # 🚨 採用無空白行真空壓縮，防止 Streamlit 解析器切斷 CSS
 st.markdown("""
@@ -243,7 +253,6 @@ def search_customers_accurate(query_str):
         conditions.append("tel LIKE :q_phone")
         params["q_phone"] = f"%{clean_q}%"
 
-    # 新增讀取 customer_source 欄位
     sql = f"""
         SELECT customer_id, customer_code, name, gender, id_card, phone, phone_backup, tel, email, 
                address, recipient2_name, recipient2_phone, recipient2_address, dietary_preference, created_at, customer_source
@@ -425,7 +434,6 @@ with tab1:
                     with ec3:
                         edit_id_card = st.text_input("身分證號 / 統編", value=cid_card if cid_card else "")
                         edit_email = st.text_input("EMAIL", value=cemail if cemail else "")
-                        # 廣告來源編輯列
                         edit_source = st.selectbox("顧客來源 (廣告追蹤)", SOURCES_LIST, index=get_source_idx(csource))
 
                     edit_addr = st.text_input("常用收件地址 (本人) *", value=caddr if caddr else "")
@@ -502,7 +510,6 @@ with tab2:
         with nc3:
             n_id_card = st.text_input("身分證號 / 統編 (選填)")
             n_email = st.text_input("EMAIL (選填)")
-            # 建立新會員時選擇顧客來源
             n_source = st.selectbox("顧客來源 (廣告追蹤) *", SOURCES_LIST)
 
         n_addr = st.text_input("常用收件地址 (本人) *")
@@ -534,7 +541,6 @@ with tab2:
                 st.error("請完整填寫『客戶姓名』、『主要手機』與『常用收件地址』！")
             else:
                 now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                # INSERT 指令加入 customer_source
                 res = execute_query("""
                     INSERT INTO customers (customer_id, customer_code, name, gender, id_card, phone, phone_backup, tel, email, 
                                            address, recipient2_name, recipient2_phone, recipient2_address, dietary_preference, created_at, customer_source)
@@ -651,7 +657,7 @@ with tab3:
         st.info("⚠️ 查無符合條件的客戶。")
 
 # ==========================================
-# TAB 4: 客戶名冊總表
+# TAB 4: 客戶名冊總表 (升級表格直接編輯與 XLSX 匯出)
 # ==========================================
 with tab4:
     st.subheader("📊 客戶名冊總表")
@@ -660,6 +666,7 @@ with tab4:
     with col_filter:
         tab4_search = st.text_input("🔍 在總表中搜尋 (請輸入姓名、手機號碼或客戶代號)：", key="tab4_search").strip()
 
+    # SQL 語法更新：加入 STRING_AGG 撈取所有「歷史訂購明細」供報表匯出
     df_all = read_query("""
         SELECT 
             c.customer_id,
@@ -672,13 +679,10 @@ with tab4:
             c.tel AS "市話",
             c.address AS "常用地址",
             (SELECT channel FROM orders WHERE customer_id = c.customer_id ORDER BY order_date DESC LIMIT 1) AS "最後購買管道",
-            c.recipient2_name AS "第二收件人",
-            c.recipient2_phone AS "第二收件電話",
-            c.recipient2_address AS "第二收件地址",
-            c.dietary_preference AS "飲食偏好",
             COUNT(o.order_id) AS "總購買次數",
             COALESCE(SUM(o.amount), 0) AS "歷史消費金額",
-            MAX(o.order_date) AS "最後購買日"
+            MAX(o.order_date) AS "最後購買日",
+            (SELECT STRING_AGG(order_date::text || ' (' || channel || '): ' || product || ' $' || amount::text, ' | ' ORDER BY order_date DESC) FROM orders WHERE customer_id = c.customer_id) AS "歷史訂購紀錄明細"
         FROM customers c
         LEFT JOIN orders o ON c.customer_id = o.customer_id
         GROUP BY c.customer_id
@@ -696,77 +700,70 @@ with tab4:
         else:
             df_filtered = df_all
 
-        # 顯示時精準移除不需要的欄位 (包含飲食偏好)，並展示 "顧客來源"
-        display_df = df_filtered.drop(columns=["customer_id", "第二收件人", "第二收件電話", "第二收件地址", "飲食偏好"])
-        st.dataframe(display_df, use_container_width=True)
+        # 為了讓資料庫能正確對應修改，我們將 customer_id 設為索引 (隱藏起來)
+        df_filtered_idx = df_filtered.set_index("customer_id")
         
-        csv_data = display_df.to_csv(index=False).encode('utf-8-sig')
-        st.download_button("📥 匯出顯示的名冊 (CSV)", csv_data, "有其田_客戶完整名冊.csv", "text/csv")
+        # 畫面顯示的欄位 (隱藏太長的明細，明細只保留在匯出的 Excel 中)
+        display_df = df_filtered_idx.drop(columns=["歷史訂購紀錄明細"])
+
+        st.markdown("💡 **小提示：您可以直接點擊下方表格的欄位進行文字修改。修改完畢後，請務必點擊下方的「儲存表格修改」按鈕。**")
+        
+        # 🔥 神級功能：讓表格變成可以直接編輯的 Data Editor
+        edited_df = st.data_editor(
+            display_df, 
+            use_container_width=True,
+            disabled=["客戶代號", "最後購買管道", "總購買次數", "歷史消費金額", "最後購買日"] # 這些是由系統計算的防呆欄位，禁止手動修改
+        )
+        
+        if st.button("💾 儲存表格上的修改", type="primary"):
+            changes_count = 0
+            for cid, row in edited_df.iterrows():
+                orig_row = display_df.loc[cid]
+                # 比對是否有修改
+                if not row.equals(orig_row):
+                    execute_query("""
+                        UPDATE customers 
+                        SET name = :name, customer_source = :src, gender = :gender, 
+                            phone = :phone, phone_backup = :phone_bak, tel = :tel, address = :addr
+                        WHERE customer_id = :cid
+                    """, {
+                        "name": row["姓名"], "src": row["顧客來源"], "gender": row["性別"],
+                        "phone": row["主要手機"], "phone_bak": row["備用手機"], "tel": row["市話"],
+                        "addr": row["常用地址"], "cid": cid
+                    })
+                    changes_count += 1
+                    
+            if changes_count > 0:
+                st.success(f"✅ 成功將 {changes_count} 位客戶的修改同步至資料庫！請按 F5 重新整理網頁。")
+            else:
+                st.info("尚未偵測到任何修改。")
 
         st.markdown("---")
-        st.subheader("✏️ 點擊下方列表，進入編輯客戶資料與歷史訂單")
-        list_opts = {f"[{row['客戶代號']}] {row['姓名']} ({row['主要手機']})": row['customer_id'] for _, row in df_filtered.iterrows()}
+        
+        # 🔥 全新升級：完美匯出包含「所有歷史訂單」的 Excel (.xlsx) 檔案
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            # 匯出時包含原本隱藏的 "歷史訂購紀錄明細"
+            df_filtered.drop(columns=["customer_id"]).to_excel(writer, index=False, sheet_name='客戶名冊')
+        excel_data = output.getvalue()
+        
+        st.download_button(
+            label="📥 匯出顯示的名冊與全部訂購歷史 (XLSX Excel檔)",
+            data=excel_data,
+            file_name="有其田_客戶完整名冊.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+        st.markdown("---")
+        st.subheader("✏️ 需要修改「歷史訂單內容」？請從下方進入客戶獨立視窗")
+        list_opts = {f"[{row['客戶代號']}] {row['姓名']} ({row['主要手機']})": cid for cid, row in df_filtered_idx.iterrows()}
         
         if list_opts:
-            edit_select_label = st.selectbox("選擇要編輯的客戶：", list(list_opts.keys()), key="list_edit_select")
+            edit_select_label = st.selectbox("選擇要編輯歷史訂單的客戶：", list(list_opts.keys()), key="list_edit_select")
             edit_target_cid = list_opts[edit_select_label]
+            h_df_tab4 = get_customer_history(edit_target_cid)
+            render_editable_orders(h_df_tab4, "tab4")
 
-            cust = get_customer_by_id(edit_target_cid)
-            if cust:
-                cid = cust['customer_id']
-                ccode = cust['customer_code']
-                cname = cust['name']
-                cgender = cust['gender']
-                cid_card = cust['id_card']
-                cphone = cust['phone']
-                cphone_bak = cust['phone_backup']
-                ctel = cust['tel']
-                cemail = cust['email']
-                caddr = cust['address']
-                cr2_name = cust['recipient2_name']
-                cr2_phone = cust['recipient2_phone']
-                cr2_addr = cust['recipient2_address']
-                cpref = cust['dietary_preference']
-                csource = cust.get('customer_source') or "未指定 / 自然流量"
-
-                with st.form(key=f"edit_cust_form_tab4_{cid}"):
-                    st.markdown("##### 👤 本人資料與常用地址")
-                    lc1, lc2, lc3 = st.columns(3)
-                    with lc1:
-                        l_code = st.text_input("客戶代號", value=ccode if ccode else "")
-                        l_name = st.text_input("姓名 *", value=cname if cname else "")
-                        l_gender = st.selectbox("性別", ["女", "男", "其他"], index=0 if cgender == "女" else (1 if cgender == "男" else 2))
-                    with lc2:
-                        l_phone = st.text_input("主要手機 *", value=cphone if cphone else "")
-                        l_phone_bak = st.text_input("備用手機", value=cphone_bak if cphone_bak else "")
-                        l_tel = st.text_input("市話電話", value=ctel if ctel else "")
-                    with lc3:
-                        l_id_card = st.text_input("身分證號 / 統編", value=cid_card if cid_card else "")
-                        l_email = st.text_input("EMAIL", value=cemail if cemail else "")
-                        l_source = st.selectbox("顧客來源 (廣告追蹤)", SOURCES_LIST, index=get_source_idx(csource))
-
-                    l_addr = st.text_input("常用收件地址 (本人) *", value=caddr if caddr else "")
-                    l_pref = st.text_input("飲食偏好 / 客戶備註", value=cpref if cpref else "")
-
-                    st.markdown("##### 🎁 送禮 / 第二收件人")
-                    lr2_1, lr2_2 = st.columns(2)
-                    with lr2_1:
-                        l_r2_name = st.text_input("第二收件人姓名 (送禮對象)", value=cr2_name if cr2_name else "")
-                    with lr2_2:
-                        l_r2_phone = st.text_input("第二收件人手機 (送禮電話)", value=cr2_phone if cr2_phone else "")
-                    l_r2_addr = st.text_input("第二收件地址 (送禮地址)", value=cr2_addr if cr2_addr else "")
-
-                    l_save_btn = st.form_submit_button("💾 儲存並更新名冊資料")
-                    if l_save_btn:
-                        update_customer_db(cid, l_code, l_name, l_gender, l_id_card, l_phone, l_phone_bak, l_tel, l_email, l_addr, l_r2_name, l_r2_phone, l_r2_addr, l_pref, l_source)
-                        st.success(f"✅ 名冊客戶【{l_name}】資料已成功修改並同步覆蓋！")
-                        st.rerun()
-                
-                st.markdown("#### 📜 編輯此客戶的歷史訂單")
-                h_df_tab4 = get_customer_history(cid)
-                render_editable_orders(h_df_tab4, "tab4")
-        else:
-            st.info("無符合搜尋條件的客戶。")
     else:
         st.info("尚無客戶資料。")
 
@@ -815,12 +812,16 @@ with tab6:
                 
                 st.dataframe(report_df, use_container_width=True)
 
-                csv_data = report_df.to_csv(index=False).encode('utf-8-sig')
+                output_report = io.BytesIO()
+                with pd.ExcelWriter(output_report, engine='xlsxwriter') as writer:
+                    report_df.to_excel(writer, index=False, sheet_name='期間訂單')
+                excel_report_data = output_report.getvalue()
+
                 st.download_button(
-                    label=f"📥 下載 {start_date} 至 {end_date} 訂單明細 (CSV)",
-                    data=csv_data,
-                    file_name=f"有其田_期間訂單報表_{start_date}至{end_date}.csv",
-                    mime="text/csv"
+                    label=f"📥 下載 {start_date} 至 {end_date} 訂單明細 (XLSX)",
+                    data=excel_report_data,
+                    file_name=f"有其田_期間訂單報表_{start_date}至{end_date}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
 
 # ==========================================

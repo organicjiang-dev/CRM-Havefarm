@@ -11,6 +11,9 @@ from email.mime.text import MIMEText
 # --- 0. 設定頁面配置與「物理放大降維打擊」CSS ---
 st.set_page_config(page_title="有其田 客服 CRM 系統", layout="wide", page_icon="🌾")
 
+# 全域顧客來源選項 (Phase 1 廣告追蹤)
+SOURCES_LIST = ["未指定 / 自然流量", "FB/IG 廣告", "Google 關鍵字 (Search)", "Google PMAX 廣告", "Google Demand Gen", "LINE 官方帳號", "其他"]
+
 # 🚨 採用無空白行真空壓縮，防止 Streamlit 解析器切斷 CSS
 st.markdown("""
 <style>
@@ -230,7 +233,6 @@ def search_customers_accurate(query_str):
         return []
     clean_q = clean_phone(q)
     
-    # 修正：直接將查詢字串無條件納入客戶代號搜尋，支援輸入 8761 就能找到 CRM008761
     conditions = ["name LIKE :q_name", "customer_code LIKE :q_code"]
     params = {"q_name": f"%{q}%", "q_code": f"%{q.upper()}%"}
 
@@ -241,12 +243,13 @@ def search_customers_accurate(query_str):
         conditions.append("tel LIKE :q_phone")
         params["q_phone"] = f"%{clean_q}%"
 
+    # 新增讀取 customer_source 欄位
     sql = f"""
         SELECT customer_id, customer_code, name, gender, id_card, phone, phone_backup, tel, email, 
-               address, recipient2_name, recipient2_phone, recipient2_address, dietary_preference, created_at
+               address, recipient2_name, recipient2_phone, recipient2_address, dietary_preference, created_at, customer_source
         FROM customers
         WHERE {" OR ".join(conditions)}
-        ORDER BY customer_id DESC
+        ORDER BY customer_code DESC, customer_id DESC
     """
     df = read_query(sql, params)
     return df.to_records(index=False).tolist()
@@ -254,7 +257,7 @@ def search_customers_accurate(query_str):
 def get_customer_by_id(cid):
     df = read_query("""
         SELECT customer_id, customer_code, name, gender, id_card, phone, phone_backup, tel, email, 
-               address, recipient2_name, recipient2_phone, recipient2_address, dietary_preference, created_at
+               address, recipient2_name, recipient2_phone, recipient2_address, dietary_preference, created_at, customer_source
         FROM customers WHERE customer_id = :cid
     """, {"cid": cid})
     if not df.empty:
@@ -269,24 +272,23 @@ def get_customer_history(customer_id):
         ORDER BY order_date DESC, order_id DESC
     """, {"cid": customer_id})
 
-def update_customer_db(cid, code, name, gender, id_card, phone, phone_bak, tel, email, addr, r2_name, r2_phone, r2_addr, pref):
+def update_customer_db(cid, code, name, gender, id_card, phone, phone_bak, tel, email, addr, r2_name, r2_phone, r2_addr, pref, source):
     execute_query("""
         UPDATE customers 
         SET customer_code = :code, name = :name, gender = :gender, id_card = :id_card, 
             phone = :phone, phone_backup = :phone_bak, tel = :tel, email = :email, 
             address = :addr, recipient2_name = :r2_name, recipient2_phone = :r2_phone, 
-            recipient2_address = :r2_addr, dietary_preference = :pref
+            recipient2_address = :r2_addr, dietary_preference = :pref, customer_source = :source
         WHERE customer_id = :cid
     """, {
         "code": code, "name": name, "gender": gender, "id_card": id_card,
         "phone": clean_phone(phone), "phone_bak": phone_bak, "tel": tel, "email": email,
-        "addr": addr, "r2_name": r2_name, "r2_phone": clean_phone(r2_phone), "r2_addr": r2_addr, "pref": pref, "cid": cid
+        "addr": addr, "r2_name": r2_name, "r2_phone": clean_phone(r2_phone), "r2_addr": r2_addr, "pref": pref, "source": source, "cid": cid
     })
 
 def delete_order(order_id):
     execute_query("DELETE FROM orders WHERE order_id = :oid", {"oid": order_id})
 
-# --- 通用：渲染可編輯的訂單區塊 ---
 def render_editable_orders(history_df, prefix_key):
     if history_df.empty:
         st.write("目前尚無訂單紀錄。")
@@ -321,7 +323,6 @@ def render_editable_orders(history_df, prefix_key):
                         st.success(f"✅ 訂單 #{oid} 修改成功！")
                         st.rerun()
 
-                # 防呆刪除區塊
                 st.markdown("---")
                 del_confirm = st.checkbox(f"⚠️ 確認要刪除此筆訂單 (#{oid})？", key=f"chk_del_{prefix_key}_{oid}")
                 if del_confirm:
@@ -330,13 +331,18 @@ def render_editable_orders(history_df, prefix_key):
                         st.success(f"✅ 已刪除訂單 #{oid}！")
                         st.rerun()
 
+def get_source_idx(src):
+    if src in SOURCES_LIST:
+        return SOURCES_LIST.index(src)
+    return 0
+
 # --- 4. 主介面排版 ---
 st.title("🌾 有其田 客服管理系統")
 
 tab1, tab2, tab3, tab4, tab6, tab5 = st.tabs([
     "🔍 舊客速查與編輯", 
     "🆕 建立新名單", 
-    "👤 歷程與時間軸", 
+    "👤 歷史訂購紀錄", 
     "📊 客戶名冊總表",
     "📅 報表與匯出",
     "📥 匯入舊名單"
@@ -350,7 +356,6 @@ with tab1:
     
     col_search, _ = st.columns([3, 1])
     with col_search:
-        # 提示文字更新
         search_query = st.text_input(
             "請輸入查詢關鍵字（姓名、手機或代號）", 
             placeholder="例：蔡汶容、0912345678、或輸入 8761 查詢 CRM008761",
@@ -387,6 +392,7 @@ with tab1:
                 cr2_addr = cust['recipient2_address']
                 cpref = cust['dietary_preference']
                 ccreated = cust['created_at']
+                csource = cust.get('customer_source') or "未指定 / 自然流量"
 
                 history_df = get_customer_history(cid)
                 total_orders = len(history_df)
@@ -419,6 +425,8 @@ with tab1:
                     with ec3:
                         edit_id_card = st.text_input("身分證號 / 統編", value=cid_card if cid_card else "")
                         edit_email = st.text_input("EMAIL", value=cemail if cemail else "")
+                        # 廣告來源編輯列
+                        edit_source = st.selectbox("顧客來源 (廣告追蹤)", SOURCES_LIST, index=get_source_idx(csource))
 
                     edit_addr = st.text_input("常用收件地址 (本人) *", value=caddr if caddr else "")
                     edit_pref = st.text_input("飲食偏好 / 重要備註", value=cpref if cpref else "", placeholder="例：只吃無糖、全素、需代收")
@@ -437,7 +445,7 @@ with tab1:
                         if not edit_name or not edit_phone or not edit_addr:
                             st.error("姓名、主要手機與常用收件地址不可為空！")
                         else:
-                            update_customer_db(cid, edit_code, edit_name, edit_gender, edit_id_card, edit_phone, edit_phone_bak, edit_tel, edit_email, edit_addr, edit_r2_name, edit_r2_phone, edit_r2_addr, edit_pref)
+                            update_customer_db(cid, edit_code, edit_name, edit_gender, edit_id_card, edit_phone, edit_phone_bak, edit_tel, edit_email, edit_addr, edit_r2_name, edit_r2_phone, edit_r2_addr, edit_pref, edit_source)
                             st.success(f"✅ 客戶【{edit_name}】資料已成功更新！")
                             st.rerun()
 
@@ -494,7 +502,8 @@ with tab2:
         with nc3:
             n_id_card = st.text_input("身分證號 / 統編 (選填)")
             n_email = st.text_input("EMAIL (選填)")
-            n_channel = st.selectbox("首次接觸管道 *", ["電話訂購 (B)", "官網 (A)", "LINE訂購", "其他"])
+            # 建立新會員時選擇顧客來源
+            n_source = st.selectbox("顧客來源 (廣告追蹤) *", SOURCES_LIST)
 
         n_addr = st.text_input("常用收件地址 (本人) *")
         n_pref = st.text_input("飲食偏好 / 客戶備註", placeholder="例：只吃無糖、全素、需代收")
@@ -511,6 +520,7 @@ with tab2:
         fc1, fc2, fc3 = st.columns(3)
         with fc1:
             n_prod = st.text_input("訂購商品名稱與規格", placeholder="例：有機三色藜麥片 3罐組")
+            n_channel = st.selectbox("首次接觸管道", ["電話訂購 (B)", "官網 (A)", "LINE訂購", "其他"])
         with fc2:
             n_amt = st.number_input("訂單金額", min_value=0, step=50, value=0)
         with fc3:
@@ -524,17 +534,18 @@ with tab2:
                 st.error("請完整填寫『客戶姓名』、『主要手機』與『常用收件地址』！")
             else:
                 now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                # INSERT 指令加入 customer_source
                 res = execute_query("""
                     INSERT INTO customers (customer_id, customer_code, name, gender, id_card, phone, phone_backup, tel, email, 
-                                           address, recipient2_name, recipient2_phone, recipient2_address, dietary_preference, created_at)
+                                           address, recipient2_name, recipient2_phone, recipient2_address, dietary_preference, created_at, customer_source)
                     VALUES (DEFAULT, :code, :name, :gender, :id_card, :phone, :phone_bak, :tel, :email, 
-                            :addr, :r2_name, :r2_phone, :r2_addr, :pref, :created_at)
+                            :addr, :r2_name, :r2_phone, :r2_addr, :pref, :created_at, :source)
                     RETURNING customer_id
                 """, {
                     "code": n_code, "name": n_name, "gender": n_gender, "id_card": n_id_card,
                     "phone": clean_np, "phone_bak": n_phone_bak, "tel": n_tel, "email": n_email,
                     "addr": n_addr, "r2_name": n_r2_name, "r2_phone": clean_phone(n_r2_phone),
-                    "r2_addr": n_r2_addr, "pref": n_pref, "created_at": now_str
+                    "r2_addr": n_r2_addr, "pref": n_pref, "created_at": now_str, "source": n_source
                 })
                 new_cid = res.fetchone()[0]
 
@@ -548,18 +559,30 @@ with tab2:
                         "amt": n_amt, "odate": str(n_date)
                     })
 
-                st.success(f"🎉 成功建立新會員【{n_name}】（代號：{n_code}）！")
+                st.success(f"🎉 成功建立新會員【{n_name}】（代號：{n_code}，來源：{n_source}）！")
                 st.rerun()
 
 # ==========================================
-# TAB 3: 客戶詳細歷程與時間軸
+# TAB 3: 歷史訂購紀錄
 # ==========================================
 with tab3:
-    st.subheader("👤 客戶檔案與歷史訂購時間軸")
-    all_df = read_query("SELECT customer_id, customer_code, name, phone FROM customers ORDER BY customer_id DESC")
+    col_t3_title, col_t3_search = st.columns([1, 1])
+    with col_t3_title:
+        st.subheader("👤 客戶檔案 與 歷史訂購紀錄")
+    with col_t3_search:
+        t3_search = st.text_input("🔍 搜尋客戶 (請輸入姓名、手機或代號)：", key="tab3_search").strip()
 
-    if not all_df.empty:
+    if t3_search:
+        matched_t3 = search_customers_accurate(t3_search)
+        if matched_t3:
+            c_opts = {f"[{c[1]}] {c[2]} ({c[5]})": c[0] for c in matched_t3}
+        else:
+            c_opts = {}
+    else:
+        all_df = read_query("SELECT customer_id, customer_code, name, phone FROM customers ORDER BY customer_code DESC, customer_id DESC")
         c_opts = {f"[{row['customer_code']}] {row['name']} ({row['phone']})": row['customer_id'] for _, row in all_df.iterrows()}
+
+    if c_opts:
         sel_label = st.selectbox("選擇要檢視或編輯的客戶：", list(c_opts.keys()), key="timeline_select_cust")
         sel_cid = c_opts[sel_label]
         
@@ -581,6 +604,7 @@ with tab3:
             cr2_phone = cust['recipient2_phone']
             cr2_addr = cust['recipient2_address']
             cpref = cust['dietary_preference']
+            csource = cust.get('customer_source') or "未指定 / 自然流量"
 
             m1, m2 = st.columns(2)
             m1.metric("累積購買次數", f"{len(h_df)} 次")
@@ -601,6 +625,7 @@ with tab3:
                     with tc3:
                         t_id_card = st.text_input("身分證號 / 統編", value=cid_card if cid_card else "")
                         t_email = st.text_input("EMAIL", value=cemail if cemail else "")
+                        t_source = st.selectbox("顧客來源 (廣告追蹤)", SOURCES_LIST, index=get_source_idx(csource))
 
                     t_addr = st.text_input("常用收件地址 (本人) *", value=caddr if caddr else "")
                     t_pref = st.text_input("飲食偏好 / 客戶備註", value=cpref if cpref else "")
@@ -615,13 +640,15 @@ with tab3:
 
                     t_save_btn = st.form_submit_button("💾 儲存並更新客戶基本資料")
                     if t_save_btn:
-                        update_customer_db(cid, t_code, t_name, t_gender, t_id_card, t_phone, t_phone_bak, t_tel, t_email, t_addr, t_r2_name, t_r2_phone, t_r2_addr, t_pref)
+                        update_customer_db(cid, t_code, t_name, t_gender, t_id_card, t_phone, t_phone_bak, t_tel, t_email, t_addr, t_r2_name, t_r2_phone, t_r2_addr, t_pref, t_source)
                         st.success("✅ 客戶資料已同步更新！")
                         st.rerun()
 
             st.markdown("---")
             st.write("**⏳ 歷史訂單與購買軌跡（支援修改或刪除）：**")
             render_editable_orders(h_df, "tab3")
+    else:
+        st.info("⚠️ 查無符合條件的客戶。")
 
 # ==========================================
 # TAB 4: 客戶名冊總表
@@ -629,7 +656,6 @@ with tab3:
 with tab4:
     st.subheader("📊 客戶名冊總表")
     
-    # 搜尋過濾功能 (修正：提示文字加入代號)
     col_filter, _ = st.columns([3, 1])
     with col_filter:
         tab4_search = st.text_input("🔍 在總表中搜尋 (請輸入姓名、手機號碼或客戶代號)：", key="tab4_search").strip()
@@ -639,6 +665,7 @@ with tab4:
             c.customer_id,
             c.customer_code AS "客戶代號",
             c.name AS "姓名",
+            c.customer_source AS "顧客來源",
             c.gender AS "性別",
             c.phone AS "主要手機",
             c.phone_backup AS "備用手機",
@@ -655,11 +682,10 @@ with tab4:
         FROM customers c
         LEFT JOIN orders o ON c.customer_id = o.customer_id
         GROUP BY c.customer_id
-        ORDER BY c.customer_id DESC
+        ORDER BY c.customer_code DESC, c.customer_id DESC
     """)
 
     if not df_all.empty:
-        # 修正：搜尋條件加入客戶代號，並轉大寫以支援模糊搜尋
         if tab4_search:
             search_upper = tab4_search.upper()
             df_filtered = df_all[
@@ -670,8 +696,8 @@ with tab4:
         else:
             df_filtered = df_all
 
-        # 修正：顯示時隱藏 customer_id 與 三個第二收件人欄位，讓版面更清爽
-        display_df = df_filtered.drop(columns=["customer_id", "第二收件人", "第二收件電話", "第二收件地址"])
+        # 顯示時精準移除不需要的欄位 (包含飲食偏好)，並展示 "顧客來源"
+        display_df = df_filtered.drop(columns=["customer_id", "第二收件人", "第二收件電話", "第二收件地址", "飲食偏好"])
         st.dataframe(display_df, use_container_width=True)
         
         csv_data = display_df.to_csv(index=False).encode('utf-8-sig')
@@ -701,6 +727,7 @@ with tab4:
                 cr2_phone = cust['recipient2_phone']
                 cr2_addr = cust['recipient2_address']
                 cpref = cust['dietary_preference']
+                csource = cust.get('customer_source') or "未指定 / 自然流量"
 
                 with st.form(key=f"edit_cust_form_tab4_{cid}"):
                     st.markdown("##### 👤 本人資料與常用地址")
@@ -716,6 +743,7 @@ with tab4:
                     with lc3:
                         l_id_card = st.text_input("身分證號 / 統編", value=cid_card if cid_card else "")
                         l_email = st.text_input("EMAIL", value=cemail if cemail else "")
+                        l_source = st.selectbox("顧客來源 (廣告追蹤)", SOURCES_LIST, index=get_source_idx(csource))
 
                     l_addr = st.text_input("常用收件地址 (本人) *", value=caddr if caddr else "")
                     l_pref = st.text_input("飲食偏好 / 客戶備註", value=cpref if cpref else "")
@@ -730,7 +758,7 @@ with tab4:
 
                     l_save_btn = st.form_submit_button("💾 儲存並更新名冊資料")
                     if l_save_btn:
-                        update_customer_db(cid, l_code, l_name, l_gender, l_id_card, l_phone, l_phone_bak, l_tel, l_email, l_addr, l_r2_name, l_r2_phone, l_r2_addr, l_pref)
+                        update_customer_db(cid, l_code, l_name, l_gender, l_id_card, l_phone, l_phone_bak, l_tel, l_email, l_addr, l_r2_name, l_r2_phone, l_r2_addr, l_pref, l_source)
                         st.success(f"✅ 名冊客戶【{l_name}】資料已成功修改並同步覆蓋！")
                         st.rerun()
                 
@@ -765,6 +793,7 @@ with tab6:
                     c.customer_code AS "客戶代號",
                     c.name AS "客戶姓名",
                     c.phone AS "手機號碼",
+                    c.customer_source AS "顧客來源",
                     o.product AS "商品名稱",
                     o.amount AS "訂單金額",
                     o.channel AS "購買管道",
@@ -881,7 +910,8 @@ with tab5:
 
                             cust_inserts.append({
                                 "customer_code": cust_code, "name": name, "gender": gender, "id_card": id_card,
-                                "phone": p1, "phone_backup": p2, "tel": t1, "address": addr, "created_at": now_str
+                                "phone": p1, "phone_backup": p2, "tel": t1, "address": addr, "created_at": now_str,
+                                "customer_source": "未指定 / 自然流量"
                             })
                             if p1:
                                 phone_to_id[p1] = cust_code

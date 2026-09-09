@@ -43,7 +43,7 @@ hr { margin: 36px 0 !important; border: 0 !important; border-top: 3px solid #cbd
 # --- 1. 自動發送驗證信模組 ---
 def send_auth_code(to_email, code):
     sender = st.secrets["EMAIL_SENDER"]
-    pwd = st.secrets["EMAIL_PASSWORD"].replace(" ", "") # 確保移除多餘空白
+    pwd = st.secrets["EMAIL_PASSWORD"].replace(" ", "")
     
     msg = MIMEText(f"您好，\n\n您的有其田 CRM 系統登入驗證碼為：【 {code} 】\n\n請在系統畫面輸入此驗證碼以完成登入。\n若非本人操作，請立刻回報管理員。", 'plain', 'utf-8')
     msg['Subject'] = "【有其田 CRM】系統安全登入驗證碼"
@@ -62,7 +62,6 @@ def send_auth_code(to_email, code):
 
 # --- 2. 雙重認證登入系統 ---
 def check_login():
-    # 初始化 Session State
     if "logged_in" not in st.session_state:
         st.session_state.logged_in = False
         st.session_state.username = ""
@@ -77,7 +76,6 @@ def check_login():
         st.markdown("<br><br>", unsafe_allow_html=True)
         st.markdown("## 🌾 有其田 客服系統 - 登入驗證")
 
-        # 階段 1：輸入帳號密碼
         if not st.session_state.pwd_verified:
             st.info("🔒 為保護客戶個資安全，請輸入內部客服人員帳號與密碼。")
             with st.form("login_form"):
@@ -90,18 +88,14 @@ def check_login():
                     if user_input in AUTH_USERS and AUTH_USERS[user_input] == pass_input:
                         st.session_state.username = user_input
                         st.session_state.pwd_verified = True
-                        
-                        # 產生 6 位數亂數驗證碼
                         code = str(random.randint(100000, 999999))
                         st.session_state.auth_code = code
                         
-                        # 找出該帳號對應的信箱並發送信件
                         RECEIVER_EMAILS = st.secrets["crm_emails"]
-                        to_email = RECEIVER_EMAILS.get(user_input, st.secrets["EMAIL_SENDER"]) # 預設寄給發信人
+                        to_email = RECEIVER_EMAILS.get(user_input, st.secrets["EMAIL_SENDER"])
                         
                         with st.spinner("系統正在發送驗證碼至您的信箱，請稍候..."):
                             if send_auth_code(to_email, code):
-                                # 為了保護隱私，只顯示部分信箱字元
                                 masked_email = f"{to_email[:3]}...@{to_email.split('@')[1]}"
                                 st.success(f"✅ 帳密正確！驗證碼已發送至信箱：{masked_email}")
                                 st.rerun()
@@ -111,7 +105,6 @@ def check_login():
                         st.error("❌ 帳號或密碼錯誤，請重新輸入！")
             return False
 
-        # 階段 2：輸入 6 位數驗證碼
         else:
             st.warning("📧 系統已發送【6位數驗證碼】至設定的電子信箱，請前往收信並填寫。")
             with st.form("2fa_form"):
@@ -128,7 +121,6 @@ def check_login():
                         st.error("❌ 驗證碼錯誤，請重新輸入！")
                 
                 if cancel_btn:
-                    # 返回上一層重新輸入帳號密碼
                     st.session_state.pwd_verified = False
                     st.session_state.auth_code = ""
                     st.rerun()
@@ -137,7 +129,7 @@ def check_login():
 if not check_login():
     st.stop()
 
-# ==================== 以下為原本的系統主要功能 (完全保留) ====================
+# ==================== 以下為原本的系統主要功能 ====================
 
 with st.sidebar:
     st.markdown(f"### 👤 目前使用者：`:blue[{st.session_state.username}]`")
@@ -297,8 +289,53 @@ def update_customer_db(cid, code, name, gender, id_card, phone, phone_bak, tel, 
 def delete_order(order_id):
     execute_query("DELETE FROM orders WHERE order_id = :oid", {"oid": order_id})
 
+# --- 通用：渲染可編輯的訂單區塊 ---
+def render_editable_orders(history_df, prefix_key):
+    if history_df.empty:
+        st.write("目前尚無訂單紀錄。")
+    else:
+        for _, r in history_df.iterrows():
+            oid = r['order_id']
+            code_tag = f" `代碼:{r['raw_date_code']}`" if r['raw_date_code'] else ""
+            
+            with st.expander(f"🗓️ {r['order_date']}{code_tag} | {r['channel']} | 金額：NT$ {r['amount']:,} | 狀態：{r['status']}", expanded=False):
+                with st.form(key=f"edit_order_form_{prefix_key}_{oid}"):
+                    ec_o1, ec_o2, ec_o3 = st.columns(3)
+                    with ec_o1:
+                        o_chan = st.selectbox("購買管道", ["電話訂購", "官網", "LINE訂購", "其他"], index=0 if "電話" in r['channel'] else (1 if "官網" in r['channel'] else 2))
+                        o_date = st.text_input("訂購日期", value=str(r['order_date']))
+                    with ec_o2:
+                        o_prod = st.text_input("訂購商品", value=str(r['product']))
+                        o_amt = st.number_input("訂單金額", min_value=0, step=50, value=int(r['amount']))
+                    with ec_o3:
+                        o_status = st.selectbox("狀態", ["歷史完成", "已完成", "已出貨", "已接單/待出貨", "售後追蹤中", "取消/退貨"], index=0 if r['status']=="歷史完成" else 1)
+                        o_notes = st.text_input("訂單備註", value=str(r['order_notes']) if pd.notna(r['order_notes']) else "")
+
+                    save_order_btn = st.form_submit_button("💾 儲存此筆訂單修改")
+                    if save_order_btn:
+                        execute_query("""
+                            UPDATE orders 
+                            SET channel = :chan, product = :prod, amount = :amt, order_date = :odate, status = :status, order_notes = :notes
+                            WHERE order_id = :oid
+                        """, {
+                            "chan": o_chan, "prod": o_prod, "amt": o_amt,
+                            "odate": o_date, "status": o_status, "notes": o_notes, "oid": oid
+                        })
+                        st.success(f"✅ 訂單 #{oid} 修改成功！")
+                        st.rerun()
+
+                # 防呆刪除區塊
+                st.markdown("---")
+                del_confirm = st.checkbox(f"⚠️ 確認要刪除此筆訂單 (#{oid})？", key=f"chk_del_{prefix_key}_{oid}")
+                if del_confirm:
+                    if st.button("🚨 確認刪除", key=f"btn_del_{prefix_key}_{oid}"):
+                        delete_order(oid)
+                        st.success(f"✅ 已刪除訂單 #{oid}！")
+                        st.rerun()
+
 # --- 4. 主介面排版 ---
-st.title("🌾 有其田 客服管理系統 (🌟CRM 旗艦升級版🌟)")
+# 移除了 🌟CRM 旗艦升級版🌟 字樣
+st.title("🌾 有其田 客服管理系統")
 
 tab1, tab2, tab3, tab4, tab6, tab5 = st.tabs([
     "🔍 舊客速查與編輯", 
@@ -365,23 +402,8 @@ with tab1:
                 m2.metric("累積消費金額", f"NT$ {total_spent:,}")
                 m3.metric("初次建檔時間", str(ccreated).split()[0] if ccreated else "-")
 
-                with st.expander(f"📜 點擊檢視【{cname}】的 {total_orders} 筆歷史購買紀錄", expanded=True):
-                    if history_df.empty:
-                        st.write("目前尚無訂單紀錄。")
-                    else:
-                        for _, r in history_df.iterrows():
-                            oid = r['order_id']
-                            code_tag = f" `代碼: {r['raw_date_code']}`" if r['raw_date_code'] else ""
-                            st.markdown(f"🗓️ **{r['order_date']}**{code_tag} | 管道：**{r['channel']}** | 金額：**NT$ {r['amount']:,}** | 狀態：`{r['status']}`")
-                            st.markdown(f"* **商品**：**{r['product']}** | **備註**：{r['order_notes'] if r['order_notes'] else '無'}")
-                            
-                            col_del_btn, _ = st.columns([2, 8])
-                            with col_del_btn:
-                                if st.button(f"🗑️ 刪除此筆訂單 (#{oid})", key=f"del_order_tab1_{oid}"):
-                                    delete_order(oid)
-                                    st.success(f"✅ 已刪除訂單 #{oid}！")
-                                    st.rerun()
-                            st.divider()
+                st.markdown("#### 📜 歷史購買紀錄 (點擊可展開編輯與刪除)")
+                render_editable_orders(history_df, "tab1")
 
                 st.markdown("---")
                 st.subheader("✏️ 編輯客戶基本資料與收件資訊")
@@ -602,51 +624,23 @@ with tab3:
 
             st.markdown("---")
             st.write("**⏳ 歷史訂單與購買軌跡（支援修改或刪除）：**")
-            if h_df.empty:
-                st.info("尚無歷史訂單紀錄。")
-            else:
-                for _, r in h_df.iterrows():
-                    oid = r['order_id']
-                    code_badge = f" `原始紀錄:{r['raw_date_code']}`" if r['raw_date_code'] else ""
-                    with st.expander(f"🗓️ {r['order_date']}{code_badge} | {r['channel']} | 金額：NT$ {r['amount']:,} | 狀態：{r['status']}", expanded=False):
-                        with st.form(key=f"edit_order_form_{oid}"):
-                            ec_o1, ec_o2, ec_o3 = st.columns(3)
-                            with ec_o1:
-                                o_chan = st.selectbox("購買管道", ["電話訂購", "官網", "LINE訂購", "其他"], index=0 if "電話" in r['channel'] else (1 if "官網" in r['channel'] else 2))
-                                o_date = st.text_input("訂購日期", value=str(r['order_date']))
-                            with ec_o2:
-                                o_prod = st.text_input("訂購商品", value=str(r['product']))
-                                o_amt = st.number_input("訂單金額", min_value=0, step=50, value=int(r['amount']))
-                            with ec_o3:
-                                o_status = st.selectbox("狀態", ["歷史完成", "已完成", "已出貨", "已接單/待出貨", "售後追蹤中", "取消/退貨"], index=0 if r['status']=="歷史完成" else 1)
-                                o_notes = st.text_input("訂單備註", value=str(r['order_notes']) if pd.notna(r['order_notes']) else "")
-
-                            save_order_btn = st.form_submit_button("💾 儲存此筆訂單修改")
-                            if save_order_btn:
-                                execute_query("""
-                                    UPDATE orders 
-                                    SET channel = :chan, product = :prod, amount = :amt, order_date = :odate, status = :status, order_notes = :notes
-                                    WHERE order_id = :oid
-                                """, {
-                                    "chan": o_chan, "prod": o_prod, "amt": o_amt,
-                                    "odate": o_date, "status": o_status, "notes": o_notes, "oid": oid
-                                })
-                                st.success(f"✅ 訂單 #{oid} 修改成功！")
-                                st.rerun()
-
-                        if st.button(f"🗑️ 刪除此筆訂單紀錄 (#{oid})", key=f"del_timeline_order_{oid}"):
-                            delete_order(oid)
-                            st.success(f"✅ 已刪除訂單 #{oid}！")
-                            st.rerun()
+            render_editable_orders(h_df, "tab3")
 
 # ==========================================
 # TAB 4: 客戶名冊總表
 # ==========================================
 with tab4:
     st.subheader("📊 客戶名冊總表")
+    
+    # 搜尋過濾功能
+    col_filter, _ = st.columns([3, 1])
+    with col_filter:
+        tab4_search = st.text_input("🔍 在總表中搜尋 (請輸入姓名或手機號碼)：", key="tab4_search").strip()
+
+    # 隱藏系統編號，加入管道與總金額
     df_all = read_query("""
         SELECT 
-            c.customer_id AS "系統編號",
+            c.customer_id,
             c.customer_code AS "客戶代號",
             c.name AS "姓名",
             c.gender AS "性別",
@@ -654,11 +648,13 @@ with tab4:
             c.phone_backup AS "備用手機",
             c.tel AS "市話",
             c.address AS "常用地址",
+            (SELECT channel FROM orders WHERE customer_id = c.customer_id ORDER BY order_date DESC LIMIT 1) AS "最後購買管道",
             c.recipient2_name AS "第二收件人",
             c.recipient2_phone AS "第二收件電話",
             c.recipient2_address AS "第二收件地址",
             c.dietary_preference AS "飲食偏好",
             COUNT(o.order_id) AS "總購買次數",
+            COALESCE(SUM(o.amount), 0) AS "歷史消費金額",
             MAX(o.order_date) AS "最後購買日"
         FROM customers c
         LEFT JOIN orders o ON c.customer_id = o.customer_id
@@ -667,64 +663,84 @@ with tab4:
     """)
 
     if not df_all.empty:
-        st.dataframe(df_all, use_container_width=True)
-        csv_data = df_all.to_csv(index=False).encode('utf-8-sig')
-        st.download_button("📥 匯出完整名冊 (CSV)", csv_data, "有其田_客戶完整名冊.csv", "text/csv")
+        # 套用搜尋條件
+        if tab4_search:
+            df_filtered = df_all[
+                df_all["姓名"].str.contains(tab4_search, na=False) | 
+                df_all["主要手機"].str.contains(tab4_search, na=False)
+            ]
+        else:
+            df_filtered = df_all
+
+        # 顯示時隱藏 customer_id 欄位
+        display_df = df_filtered.drop(columns=["customer_id"])
+        st.dataframe(display_df, use_container_width=True)
+        
+        csv_data = display_df.to_csv(index=False).encode('utf-8-sig')
+        st.download_button("📥 匯出顯示的名冊 (CSV)", csv_data, "有其田_客戶完整名冊.csv", "text/csv")
 
         st.markdown("---")
-        st.subheader("✏️ 從名冊快速選取客戶進行編輯")
-        list_opts = {f"[{row['客戶代號']}] {row['姓名']} ({row['主要手機']}) - ID:{row['系統編號']}": row['系統編號'] for _, row in df_all.iterrows()}
-        edit_select_label = st.selectbox("選擇要編輯的客戶：", list(list_opts.keys()), key="list_edit_select")
-        edit_target_cid = list_opts[edit_select_label]
+        st.subheader("✏️ 點擊下方列表，進入編輯客戶資料與歷史訂單")
+        list_opts = {f"[{row['客戶代號']}] {row['姓名']} ({row['主要手機']})": row['customer_id'] for _, row in df_filtered.iterrows()}
+        
+        if list_opts:
+            edit_select_label = st.selectbox("選擇要編輯的客戶：", list(list_opts.keys()), key="list_edit_select")
+            edit_target_cid = list_opts[edit_select_label]
 
-        cust = get_customer_by_id(edit_target_cid)
-        if cust:
-            cid = cust['customer_id']
-            ccode = cust['customer_code']
-            cname = cust['name']
-            cgender = cust['gender']
-            cid_card = cust['id_card']
-            cphone = cust['phone']
-            cphone_bak = cust['phone_backup']
-            ctel = cust['tel']
-            cemail = cust['email']
-            caddr = cust['address']
-            cr2_name = cust['recipient2_name']
-            cr2_phone = cust['recipient2_phone']
-            cr2_addr = cust['recipient2_address']
-            cpref = cust['dietary_preference']
+            cust = get_customer_by_id(edit_target_cid)
+            if cust:
+                cid = cust['customer_id']
+                ccode = cust['customer_code']
+                cname = cust['name']
+                cgender = cust['gender']
+                cid_card = cust['id_card']
+                cphone = cust['phone']
+                cphone_bak = cust['phone_backup']
+                ctel = cust['tel']
+                cemail = cust['email']
+                caddr = cust['address']
+                cr2_name = cust['recipient2_name']
+                cr2_phone = cust['recipient2_phone']
+                cr2_addr = cust['recipient2_address']
+                cpref = cust['dietary_preference']
 
-            with st.form(key=f"edit_cust_form_tab4_{cid}"):
-                st.markdown("##### 👤 本人資料與常用地址")
-                lc1, lc2, lc3 = st.columns(3)
-                with lc1:
-                    l_code = st.text_input("客戶代號", value=ccode if ccode else "")
-                    l_name = st.text_input("姓名 *", value=cname if cname else "")
-                    l_gender = st.selectbox("性別", ["女", "男", "其他"], index=0 if cgender == "女" else (1 if cgender == "男" else 2))
-                with lc2:
-                    l_phone = st.text_input("主要手機 *", value=cphone if cphone else "")
-                    l_phone_bak = st.text_input("備用手機", value=cphone_bak if cphone_bak else "")
-                    l_tel = st.text_input("市話電話", value=ctel if ctel else "")
-                with lc3:
-                    l_id_card = st.text_input("身分證號 / 統編", value=cid_card if cid_card else "")
-                    l_email = st.text_input("EMAIL", value=cemail if cemail else "")
+                with st.form(key=f"edit_cust_form_tab4_{cid}"):
+                    st.markdown("##### 👤 本人資料與常用地址")
+                    lc1, lc2, lc3 = st.columns(3)
+                    with lc1:
+                        l_code = st.text_input("客戶代號", value=ccode if ccode else "")
+                        l_name = st.text_input("姓名 *", value=cname if cname else "")
+                        l_gender = st.selectbox("性別", ["女", "男", "其他"], index=0 if cgender == "女" else (1 if cgender == "男" else 2))
+                    with lc2:
+                        l_phone = st.text_input("主要手機 *", value=cphone if cphone else "")
+                        l_phone_bak = st.text_input("備用手機", value=cphone_bak if cphone_bak else "")
+                        l_tel = st.text_input("市話電話", value=ctel if ctel else "")
+                    with lc3:
+                        l_id_card = st.text_input("身分證號 / 統編", value=cid_card if cid_card else "")
+                        l_email = st.text_input("EMAIL", value=cemail if cemail else "")
 
-                l_addr = st.text_input("常用收件地址 (本人) *", value=caddr if caddr else "")
-                l_pref = st.text_input("飲食偏好 / 客戶備註", value=cpref if cpref else "")
+                    l_addr = st.text_input("常用收件地址 (本人) *", value=caddr if caddr else "")
+                    l_pref = st.text_input("飲食偏好 / 客戶備註", value=cpref if cpref else "")
 
-                st.markdown("##### 🎁 送禮 / 第二收件人")
-                lr2_1, lr2_2 = st.columns(2)
-                with lr2_1:
-                    l_r2_name = st.text_input("第二收件人姓名 (送禮對象)", value=cr2_name if cr2_name else "")
-                with lr2_2:
-                    l_r2_phone = st.text_input("第二收件人手機 (送禮電話)", value=cr2_phone if cr2_phone else "")
-                l_r2_addr = st.text_input("第二收件地址 (送禮地址)", value=cr2_addr if cr2_addr else "")
+                    st.markdown("##### 🎁 送禮 / 第二收件人")
+                    lr2_1, lr2_2 = st.columns(2)
+                    with lr2_1:
+                        l_r2_name = st.text_input("第二收件人姓名 (送禮對象)", value=cr2_name if cr2_name else "")
+                    with lr2_2:
+                        l_r2_phone = st.text_input("第二收件人手機 (送禮電話)", value=cr2_phone if cr2_phone else "")
+                    l_r2_addr = st.text_input("第二收件地址 (送禮地址)", value=cr2_addr if cr2_addr else "")
 
-                l_save_btn = st.form_submit_button("💾 儲存並更新名冊資料")
-                if l_save_btn:
-                    update_customer_db(cid, l_code, l_name, l_gender, l_id_card, l_phone, l_phone_bak, l_tel, l_email, l_addr, l_r2_name, l_r2_phone, l_r2_addr, l_pref)
-                    st.success(f"✅ 名冊客戶【{l_name}】資料已成功修改並同步覆蓋！")
-                    st.rerun()
+                    l_save_btn = st.form_submit_button("💾 儲存並更新名冊資料")
+                    if l_save_btn:
+                        update_customer_db(cid, l_code, l_name, l_gender, l_id_card, l_phone, l_phone_bak, l_tel, l_email, l_addr, l_r2_name, l_r2_phone, l_r2_addr, l_pref)
+                        st.success(f"✅ 名冊客戶【{l_name}】資料已成功修改並同步覆蓋！")
+                        st.rerun()
+                
+                st.markdown("#### 📜 編輯此客戶的歷史訂單")
+                h_df_tab4 = get_customer_history(cid)
+                render_editable_orders(h_df_tab4, "tab4")
+        else:
+            st.info("無符合搜尋條件的客戶。")
     else:
         st.info("尚無客戶資料。")
 
@@ -844,10 +860,8 @@ with tab5:
                                 col_str = str(col_name)
                                 val_str = str(val).strip()
                                 
-                                # 🔥 修正核心：只要欄位名稱包含「商品」兩字，系統就直接跳過不抓取！
-                                # 只保留純「購1、購2」或是 Excel 隱藏的 Unnamed 欄位
+                                # 精準過濾包含「商品」的欄位
                                 if (col_str.startswith("購") and "商品" not in col_str) or col_str.startswith("Unnamed"):
-                                    # 再次確認內容格式是否包含日期代碼特徵 (A, B, L 或符號)
                                     if (("-" in val_str) or ("/" in val_str) or val_str.upper().startswith("A") or val_str.upper().startswith("B") or val_str.upper().startswith("L")):
                                         o_chan, o_date, r_code = parse_date_code(val_str, default_channel)
                                         row_orders.append((o_chan, o_date, r_code))

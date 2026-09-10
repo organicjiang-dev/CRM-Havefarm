@@ -814,7 +814,7 @@ with tab4:
         st.info("尚無客戶資料。")
 
 # ==========================================
-# TAB 7: 🎯 智慧回購清單與電銷戰情室 (已加上 ::date 轉型修復)
+# TAB 7: 🎯 智慧回購清單與電銷戰情室 (已改由 Python 安全計算 180 天)
 # ==========================================
 with tab7:
     st.subheader("🎯 智慧回購清單與電銷追蹤戰情室")
@@ -839,39 +839,57 @@ with tab7:
     st.markdown("---")
 
     st.markdown("#### 💤 潛在沉睡客喚醒名單 (超過 180 天未回購)")
-    # 修正：加上 MAX(o.order_date::date) 強制轉型，解決資料庫型態衝突報錯
-    dormant_df = read_query("""
+    
+    # 🛡️ 關鍵修復：改由 Python (Pandas) 在記憶體中安全過濾日期，徹底避開資料庫格式髒資料陷阱
+    raw_orders_for_dormant = read_query("""
         SELECT 
             c.customer_id,
             c.customer_code AS "客戶代號",
             c.name AS "姓名",
             c.phone AS "主要手機",
-            MAX(o.order_date) AS "最後購買日",
-            COALESCE(SUM(o.amount), 0) AS "歷史消費金額"
+            o.order_date,
+            o.amount
         FROM customers c
-        JOIN orders o ON c.customer_id = c.customer_id
-        GROUP BY c.customer_id, c.customer_code, c.name, c.phone
-        HAVING MAX(o.order_date::date) < CURRENT_DATE - INTERVAL '180 days'
-        ORDER BY "歷史消費金額" DESC
-        LIMIT 50
+        JOIN orders o ON c.customer_id = o.customer_id
     """)
 
-    if dormant_df.empty:
-        st.info("目前沒有超過 180 天未回購的沉睡客。")
+    if raw_orders_for_dormant.empty:
+        st.info("目前尚無訂單資料。")
     else:
-        st.dataframe(dormant_df.drop(columns=["customer_id"]), use_container_width=True)
+        # 將 order_date 轉為標準日期格式，無法解析的自動轉為 NaT（略過不計）
+        raw_orders_for_dormant['parsed_date'] = pd.to_datetime(raw_orders_for_dormant['order_date'], errors='coerce')
         
-        dormant_output = io.BytesIO()
-        with pd.ExcelWriter(dormant_output, engine='xlsxwriter') as writer:
-            dormant_df.drop(columns=["customer_id"]).to_excel(writer, index=False, sheet_name='沉睡客名單')
-        dormant_excel = dormant_output.getvalue()
+        # 找出每位客戶的最後購買日與總消費金額
+        agg_df = raw_orders_for_dormant.groupby(['customer_id', '客戶代號', '姓名', '主要手機']).agg(
+            最後購買日=('parsed_date', 'max'),
+            歷史消費金額=('amount', 'sum')
+        ).reset_index()
 
-        st.download_button(
-            label="📥 匯出這批沉睡客名單 (XLSX)",
-            data=dormant_excel,
-            file_name="有其田_沉睡客喚醒名單.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        # 計算距離今天的天數
+        cutoff_date = pd.Timestamp(date.today() - timedelta(days=180))
+        
+        # 篩選出最後購買日早於 180 天前的客戶
+        dormant_df = agg_df[agg_df['最後購買日'] < cutoff_date].sort_values(by='歷史消費金額', ascending=False).head(50)
+        
+        # 將最後購買日轉回好看的字串格式
+        dormant_df['最後購買日'] = dormant_df['最後購買日'].dt.strftime('%Y-%m-%d')
+
+        if dormant_df.empty:
+            st.info("目前沒有超過 180 天未回購的沉睡客。")
+        else:
+            st.dataframe(dormant_df.drop(columns=["customer_id"]), use_container_width=True)
+            
+            dormant_output = io.BytesIO()
+            with pd.ExcelWriter(dormant_output, engine='xlsxwriter') as writer:
+                dormant_df.drop(columns=["customer_id"]).to_excel(writer, index=False, sheet_name='沉睡客名單')
+            dormant_excel = dormant_output.getvalue()
+
+            st.download_button(
+                label="📥 匯出這批沉睡客名單 (XLSX)",
+                data=dormant_excel,
+                file_name="有其田_沉睡客喚醒名單.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
 
 # ==========================================
 # TAB 6: 期間訂單報表與電銷績效匯出
@@ -1064,7 +1082,7 @@ with tab5:
                     if pd.notna(r['phone']) and str(r['phone']).strip():
                         phone_map[str(r['phone']).strip()] = cid
 
-                final_orders = []
+.               final_orders = []
                 for target_ref, is_new, o_chan, o_date, r_code in order_tasks:
                     final_cid = None
                     if isinstance(target_ref, int):

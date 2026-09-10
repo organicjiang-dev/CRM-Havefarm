@@ -814,7 +814,7 @@ with tab4:
         st.info("尚無客戶資料。")
 
 # ==========================================
-# TAB 7: 🎯 智慧回購清單與電銷戰情室 (已改為 180 天未回購)
+# TAB 7: 🎯 智慧回購清單與電銷戰情室 (已加上 ::date 轉型修復)
 # ==========================================
 with tab7:
     st.subheader("🎯 智慧回購清單與電銷追蹤戰情室")
@@ -839,7 +839,7 @@ with tab7:
     st.markdown("---")
 
     st.markdown("#### 💤 潛在沉睡客喚醒名單 (超過 180 天未回購)")
-    # 修正：將 90 天改為 180 天，完美符合快消品 4-6 個月的消耗週期
+    # 修正：加上 MAX(o.order_date::date) 強制轉型，解決資料庫型態衝突報錯
     dormant_df = read_query("""
         SELECT 
             c.customer_id,
@@ -851,7 +851,7 @@ with tab7:
         FROM customers c
         JOIN orders o ON c.customer_id = c.customer_id
         GROUP BY c.customer_id, c.customer_code, c.name, c.phone
-        HAVING MAX(o.order_date) < CURRENT_DATE - INTERVAL '180 days'
+        HAVING MAX(o.order_date::date) < CURRENT_DATE - INTERVAL '180 days'
         ORDER BY "歷史消費金額" DESC
         LIMIT 50
     """)

@@ -348,17 +348,19 @@ def get_source_idx(src):
 # --- 4. 主介面排版 ---
 st.title("🌾 有其田 客服管理系統")
 
-tab1, tab2, tab3, tab4, tab6, tab5 = st.tabs([
+# 新增「🎯 智慧回購清單」分頁
+tab1, tab2, tab3, tab4, tab7, tab6, tab5 = st.tabs([
     "🔍 舊客速查與編輯", 
     "🆕 建立新名單", 
     "👤 歷史訂購紀錄", 
     "📊 客戶名冊總表",
+    "🎯 智慧回購清單",
     "📅 報表與匯出",
     "📥 匯入舊名單"
 ])
 
 # ==========================================
-# TAB 1: 舊客戶速查與編輯
+# TAB 1: 舊客戶速查與編輯 (內嵌電訪紀錄面板)
 # ==========================================
 with tab1:
     st.markdown("### 🔍 舊客戶電話 / 代號 / 姓名速查")
@@ -413,6 +415,39 @@ with tab1:
                 m1.metric("累積購買次數", f"{total_orders} 次")
                 m2.metric("累積消費金額", f"NT$ {total_spent:,}")
                 m3.metric("初次建檔時間", str(ccreated).split()[0] if ccreated else "-")
+
+                # --- 📞 電訪紀錄與下次提醒摺疊面板 ---
+                with st.expander("📞 電訪追蹤紀錄與下次提醒（點擊展開/收合）", expanded=False):
+                    with st.form(key=f"tele_form_tab1_{cid}", clear_on_submit=True):
+                        tc_col1, tc_col2 = st.columns(2)
+                        with tc_col1:
+                            call_status = st.selectbox("撥打狀態", ["成功下單", "考慮中", "無人接聽", "拒絕/空號"])
+                            next_date = st.date_input("下次提醒再訪日 (選填)", value=None)
+                        with tc_col2:
+                            call_notes = st.text_area("電訪筆記與備註", placeholder="例：詢問燕麥奶庫存狀況，表示下週回電。")
+
+                        save_call_btn = st.form_submit_button("📞 儲存這通電訪紀錄")
+                        if save_call_btn:
+                            execute_query("""
+                                INSERT INTO telemarketing_logs (customer_id, agent_name, call_status, call_notes, next_followup_date)
+                                VALUES (:cid, :agent, :status, :notes, :ndate)
+                            """, {
+                                "cid": cid,
+                                "agent": st.session_state.username,
+                                "status": call_status,
+                                "notes": call_notes,
+                                "ndate": next_date if next_date else None
+                            })
+                            st.success("✅ 電訪紀錄已成功儲存！")
+                            st.rerun()
+
+                    # 顯示該客戶過往電訪紀錄
+                    past_logs = read_query("SELECT agent_name, call_status, call_notes, next_followup_date, created_at FROM telemarketing_logs WHERE customer_id = :cid ORDER BY created_at DESC", {"cid": cid})
+                    if not past_logs.empty:
+                        st.write("**歷史電訪紀錄：**")
+                        for _, plog in past_logs.iterrows():
+                            nd_str = f" | 🔔 下次提醒: {plog['next_followup_date']}" if pd.notna(plog['next_followup_date']) else ""
+                            st.caption(f"[{str(plog['created_at'])[:16]}] 專員: {plog['agent_name']} | 狀態: **{plog['call_status']}**{nd_str} — 備註: {plog['call_notes']}")
 
                 st.markdown("#### 📜 歷史購買紀錄 (點擊可展開編輯與刪除)")
                 render_editable_orders(history_df, "tab1")
@@ -616,6 +651,38 @@ with tab3:
             m1.metric("累積購買次數", f"{len(h_df)} 次")
             m2.metric("累積消費金額", f"NT$ {h_df['amount'].sum():,}")
 
+            # --- 📞 電訪紀錄與下次提醒摺疊面板 (Tab 3 同步支援) ---
+            with st.expander("📞 電訪追蹤紀錄與下次提醒（點擊展開/收合）", expanded=False):
+                with st.form(key=f"tele_form_tab3_{cid}", clear_on_submit=True):
+                    tc_col1, tc_col2 = st.columns(2)
+                    with tc_col1:
+                        call_status = st.selectbox("撥打狀態", ["成功下單", "考慮中", "無人接聽", "拒絕/空號"])
+                        next_date = st.date_input("下次提醒再訪日 (選填)", value=None)
+                    with tc_col2:
+                        call_notes = st.text_area("電訪筆記與備註", placeholder="例：詢問燕麥奶庫存狀況，表示下週回電。")
+
+                    save_call_btn = st.form_submit_button("📞 儲存這通電訪紀錄")
+                    if save_call_btn:
+                        execute_query("""
+                            INSERT INTO telemarketing_logs (customer_id, agent_name, call_status, call_notes, next_followup_date)
+                            VALUES (:cid, :agent, :status, :notes, :ndate)
+                        """, {
+                            "cid": cid,
+                            "agent": st.session_state.username,
+                            "status": call_status,
+                            "notes": call_notes,
+                            "ndate": next_date if next_date else None
+                        })
+                        st.success("✅ 電訪紀錄已成功儲存！")
+                        st.rerun()
+
+                past_logs = read_query("SELECT agent_name, call_status, call_notes, next_followup_date, created_at FROM telemarketing_logs WHERE customer_id = :cid ORDER BY created_at DESC", {"cid": cid})
+                if not past_logs.empty:
+                    st.write("**歷史電訪紀錄：**")
+                    for _, plog in past_logs.iterrows():
+                        nd_str = f" | 🔔 下次提醒: {plog['next_followup_date']}" if pd.notna(plog['next_followup_date']) else ""
+                        st.caption(f"[{str(plog['created_at'])[:16]}組立] 專員: {plog['agent_name']} | 狀態: **{plog['call_status']}**{nd_str} — 備註: {plog['call_notes']}")
+
             with st.expander(f"✏️ 點擊展開／收合【{cname}】的基本資料與收件人設定", expanded=True):
                 with st.form(key=f"edit_cust_form_tab3_{cid}"):
                     st.markdown("##### 👤 本人資料與常用地址")
@@ -700,13 +767,10 @@ with tab4:
             df_filtered = df_all
 
         df_filtered_idx = df_filtered.set_index("customer_id")
-        
         display_df = df_filtered_idx.drop(columns=["歷史訂購紀錄明細"])
 
-        # 🔥 精簡化提示文字
         st.markdown("💡 **小提示：可以點擊欄位進行編輯。修改完畢，務必點擊下方的「儲存」按鈕。**")
         
-        # 🔥 神級功能：直接在表格上修改資料，並且透過 hide_index=True 隱藏無意義的 customer_id
         edited_df = st.data_editor(
             display_df, 
             use_container_width=True,
@@ -714,7 +778,6 @@ with tab4:
             disabled=["客戶代號", "最後購買管道", "總購買次數", "歷史消費金額", "最後購買日"]
         )
         
-        # 🔥 按鈕文字簡化
         if st.button("💾 儲存", type="primary"):
             changes_count = 0
             for cid, row in edited_df.iterrows():
@@ -750,26 +813,78 @@ with tab4:
             file_name="有其田_客戶完整名冊.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-
-        st.markdown("---")
-        st.subheader("✏️ 需要修改「歷史訂單內容」？請從下方進入客戶獨立視窗")
-        list_opts = {f"[{row['客戶代號']}] {row['姓名']} ({row['主要手機']})": cid for cid, row in df_filtered_idx.iterrows()}
-        
-        if list_opts:
-            edit_select_label = st.selectbox("選擇要編輯歷史訂單的客戶：", list(list_opts.keys()), key="list_edit_select")
-            edit_target_cid = list_opts[edit_select_label]
-            h_df_tab4 = get_customer_history(edit_target_cid)
-            render_editable_orders(h_df_tab4, "tab4")
-
     else:
         st.info("尚無客戶資料。")
 
 # ==========================================
-# TAB 6: 期間訂單報表與匯出
+# TAB 7: 🎯 智慧回購清單與電銷戰情室 (新功能)
+# ==========================================
+with tab7:
+    st.subheader("🎯 智慧回購清單與電銷追蹤戰情室")
+    st.markdown("系統自動幫您篩選出「今日需要再次電訪」以及「超過 90 天未回購的沉睡客」名單，點擊即可直接展開聯繫！")
+
+    today_str = date.today().strftime("%Y-%m-%d")
+
+    # 1. 今日待追蹤名單
+    st.markdown("#### 🔔 今日預定再訪清單 (依電訪提醒日)")
+    followup_df = read_query("""
+        SELECT DISTINCT c.customer_id, c.customer_code, c.name, c.phone, t.next_followup_date, t.call_status, t.call_notes
+        FROM telemarketing_logs t
+        JOIN customers c ON t.customer_id = c.customer_id
+        WHERE t.next_followup_date <= :today
+        ORDER BY t.next_followup_date ASC
+    """, {"today": today_str})
+
+    if followup_df.empty:
+        st.info("🎉 目前沒有設定今天必須回訪的客戶！")
+    else:
+        st.dataframe(followup_df.drop(columns=["customer_id"]), use_container_width=True)
+
+    st.markdown("---")
+
+    # 2. 沉睡客自動篩選 (超過 90 天未回購)
+    st.markdown("#### 💤 潛在沉睡客喚醒名單 (超過 90 天未回購)")
+    dormant_df = read_query("""
+        SELECT 
+            c.customer_id,
+            c.customer_code AS "客戶代號",
+            c.name AS "姓名",
+            c.phone AS "主要手機",
+            MAX(o.order_date) AS "最後購買日",
+            CURRENT_DATE - MAX(o.order_date)::date AS "未回購天數",
+            COALESCE(SUM(o.amount), 0) AS "歷史消費金額"
+        FROM customers c
+        JOIN orders o ON c.customer_id = c.customer_id
+        GROUP BY c.customer_id, c.customer_code, c.name, c.phone
+        HAVING MAX(o.order_date) < CURRENT_DATE - INTERVAL '90 days'
+        ORDER BY "歷史消費金額" DESC
+        LIMIT 50
+    """)
+
+    if dormant_df.empty:
+        st.info("目前沒有超過 90 天未回購的沉睡客。")
+    else:
+        st.dataframe(dormant_df.drop(columns=["customer_id"]), use_container_width=True)
+        
+        dormant_output = io.BytesIO()
+        with pd.ExcelWriter(dormant_output, engine='xlsxwriter') as writer:
+            dormant_df.drop(columns=["customer_id"]).to_excel(writer, index=False, sheet_name='沉睡客名單')
+        dormant_excel = dormant_output.getvalue()
+
+        st.download_button(
+            label="📥 匯出這批沉睡客名單 (XLSX)",
+            data=dormant_excel,
+            file_name="有其田_沉睡客喚醒名單.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+# ==========================================
+# TAB 6: 期間訂單報表與電銷績效匯出
 # ==========================================
 with tab6:
-    st.subheader("📅 期間訂單紀錄撈取與報表匯出")
-    st.markdown("請選擇您要查詢的日期區間（以訂單建立日期為準）：")
+    st.subheader("📅 期間訂單紀錄與電話行銷成效報表")
+    
+    report_type = st.radio("選擇要產生的報表類型：", ["📦 期間訂單明細報表", "📞 電話行銷漏斗與客服績效報表"], horizontal=True)
 
     col_d1, col_d2 = st.columns(2)
     with col_d1:
@@ -777,49 +892,65 @@ with tab6:
     with col_d2:
         end_date = st.date_input("結束日期", value=date.today())
 
-    if st.button("📊 產生期間報表"):
+    if st.button("📊 產生並下載報表"):
         if start_date > end_date:
-            st.error("起始日期不能大於結束日期，請重新選擇！")
+            st.error("起始日期不能大於結束日期！")
         else:
-            report_sql = """
-                SELECT 
-                    o.order_date AS "訂購日期",
-                    c.customer_code AS "客戶代號",
-                    c.name AS "客戶姓名",
-                    c.phone AS "手機號碼",
-                    c.customer_source AS "顧客來源",
-                    o.product AS "商品名稱",
-                    o.amount AS "訂單金額",
-                    o.channel AS "購買管道",
-                    o.status AS "訂單狀態",
-                    o.order_notes AS "訂單備註"
-                FROM orders o
-                JOIN customers c ON o.customer_id = c.customer_id
-                WHERE o.order_date >= :s_date AND o.order_date <= :e_date
-                ORDER BY o.order_date DESC, o.order_id DESC
-            """
-            
-            report_df = read_query(report_sql, {"s_date": str(start_date), "e_date": str(end_date)})
+            if report_type == "📦 期間訂單明細報表":
+                report_sql = """
+                    SELECT 
+                        o.order_date AS "訂購日期",
+                        c.customer_code AS "客戶代號",
+                        c.name AS "客戶姓名",
+                        c.phone AS "手機號碼",
+                        c.customer_source AS "顧客來源",
+                        o.product AS "商品名稱",
+                        o.amount AS "訂單金額",
+                        o.channel AS "購買管道",
+                        o.status AS "訂單狀態",
+                        o.order_notes AS "訂單備註"
+                    FROM orders o
+                    JOIN customers c ON o.customer_id = c.customer_id
+                    WHERE o.order_date >= :s_date AND o.order_date <= :e_date
+                    ORDER BY o.order_date DESC, o.order_id DESC
+                """
+                report_df = read_query(report_sql, {"s_date": str(start_date), "e_date": str(end_date)})
 
-            if report_df.empty:
-                st.warning(f"⚠️ 在 {start_date} 至 {end_date} 期間內，沒有找到任何訂單紀錄。")
+                if report_df.empty:
+                    st.warning("⚠️ 此區間內無訂單紀錄。")
+                else:
+                    st.success(f"✅ 成功撈取 **{len(report_df)}** 筆訂單，總金額：NT$ {report_df['訂單金額'].sum():,}")
+                    st.dataframe(report_df, use_container_width=True)
+
+                    out = io.BytesIO()
+                    with pd.ExcelWriter(out, engine='xlsxwriter') as w:
+                        report_df.to_excel(w, index=False, sheet_name='訂單報表')
+                    st.download_button("📥 下載訂單明細 (XLSX)", out.getvalue(), f"有其田_訂單報表_{start_date}至{end_date}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
             else:
-                total_amount = report_df["訂單金額"].sum()
-                st.success(f"✅ 成功撈取 **{len(report_df)}** 筆訂單紀錄！此區間累積金額為：**NT$ {total_amount:,}**")
-                
-                st.dataframe(report_df, use_container_width=True)
+                # 電話行銷績效報表
+                tele_sql = """
+                    SELECT 
+                        agent_name AS "客服專員",
+                        call_status AS "撥打狀態",
+                        COUNT(*) AS "通話次數"
+                    FROM telemarketing_logs
+                    WHERE created_at::date >= :s_date AND created_at::date <= :e_date
+                    GROUP BY agent_name, call_status
+                    ORDER BY agent_name, "通話次數" DESC
+                """
+                tele_df = read_query(tele_sql, {"s_date": str(start_date), "e_date": str(end_date)})
 
-                output_report = io.BytesIO()
-                with pd.ExcelWriter(output_report, engine='xlsxwriter') as writer:
-                    report_df.to_excel(writer, index=False, sheet_name='期間訂單')
-                excel_report_data = output_report.getvalue()
+                if tele_df.empty:
+                    st.warning("⚠️ 此區間內無電訪紀錄。")
+                else:
+                    st.success("✅ 成功產生電銷漏斗與專員績效統計！")
+                    st.dataframe(tele_df, use_container_width=True)
 
-                st.download_button(
-                    label=f"📥 下載 {start_date} 至 {end_date} 訂單明細 (XLSX)",
-                    data=excel_report_data,
-                    file_name=f"有其田_期間訂單報表_{start_date}至{end_date}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
+                    out = io.BytesIO()
+                    with pd.ExcelWriter(out, engine='xlsxwriter') as w:
+                        tele_df.to_excel(w, index=False, sheet_name='電銷績效報表')
+                    st.download_button("📥 下載電銷績效報表 (XLSX)", out.getvalue(), f"有其田_電銷績效報表_{start_date}至{end_date}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # ==========================================
 # TAB 5: 批次匯入舊名單

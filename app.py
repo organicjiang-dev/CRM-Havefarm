@@ -748,6 +748,16 @@ with tab3:
                         st.success("✅ 客戶資料已同步更新！")
                         st.rerun()
 
+            # 🗑️ 【同步補上】刪除重複會員專區（位於 Tab 3 基本資料下方）
+            with st.expander("⚠️ 危險操作區：刪除此會員帳號", expanded=False):
+                st.warning("若此會員為重複建檔的幽靈帳號，確認後可點擊下方按鈕將其永久刪除（包含歷史訂單）。")
+                del_cust_chk_t3 = st.checkbox(f"我確定要刪除客戶 【{cname}】 ({ccode})", key=f"chk_del_cust_t3_{cid}")
+                if del_cust_chk_t3:
+                    if st.button(f"🚨 確認永久刪除此會員", key=f"btn_del_cust_t3_{cid}", type="primary"):
+                        delete_customer(cid)
+                        st.success(f"✅ 已成功刪除會員 【{cname}】！")
+                        st.rerun()
+
             with st.expander("📞 電訪追蹤紀錄與下次提醒（點擊展開/收合）", expanded=False):
                 st.markdown("##### ➕ 新增一通電訪紀錄")
                 with st.form(key=f"tele_form_tab3_{cid}", clear_on_submit=True):

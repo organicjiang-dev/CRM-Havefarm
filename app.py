@@ -309,6 +309,13 @@ def update_customer_db(cid, code, name, gender, id_card, phone, phone_bak, tel, 
     })
     st.cache_data.clear()
 
+def delete_customer(cid):
+    # 同步刪除該客戶底下的訂單、電訪紀錄與客戶主檔
+    execute_query("DELETE FROM orders WHERE customer_id = :cid", {"cid": cid})
+    execute_query("DELETE FROM telemarketing_logs WHERE customer_id = :cid", {"cid": cid})
+    execute_query("DELETE FROM customers WHERE customer_id = :cid", {"cid": cid})
+    st.cache_data.clear()
+
 def delete_order(order_id):
     execute_query("DELETE FROM orders WHERE order_id = :oid", {"oid": order_id})
 
@@ -362,6 +369,13 @@ def get_source_idx(src):
 # --- 4. 主介面排版 ---
 st.title("🌾 有其田 客服管理系統")
 
+# 檢查是否有從總表點擊跳轉過來的請求
+if "jump_to_tab" not in st.session_state:
+    st.session_state.jump_to_tab = 0
+
+if "jump_search_query" not in st.session_state:
+    st.session_state.jump_search_query = ""
+
 tab1, tab2, tab3, tab4, tab7, tab6, tab5 = st.tabs([
     "🔍 舊客速查與編輯", 
     "🆕 建立新名單", 
@@ -378,10 +392,14 @@ tab1, tab2, tab3, tab4, tab7, tab6, tab5 = st.tabs([
 with tab1:
     st.markdown("### 🔍 舊客戶電話 / 代號 / 姓名極速速查")
     
+    default_search = st.session_state.jump_search_query
+    st.session_state.jump_search_query = "" # 讀完清空
+
     col_search, _ = st.columns([3, 1])
     with col_search:
         search_query = st.text_input(
             "請輸入查詢關鍵字（姓名、手機或代號）", 
+            value=default_search,
             placeholder="例：蔡汶容、0912345678、或輸入 8761 查詢 CRM008761",
             key="accurate_cust_search"
         ).strip()
@@ -807,7 +825,7 @@ with tab3:
         st.info("⚠️ 查無符合條件的客戶。")
 
 # ==========================================
-# TAB 4: 客戶名冊總表
+# TAB 4: 客戶名冊總表 (🌟 支援點擊代號跳轉與一鍵刪除)
 # ==========================================
 with tab4:
     st.subheader("📊 客戶名冊總表")
@@ -849,40 +867,49 @@ with tab4:
         else:
             df_filtered = df_all
 
-        df_filtered_idx = df_filtered.set_index("customer_id")
-        display_df = df_filtered_idx.drop(columns=["歷史訂購紀錄明細"])
+        st.markdown("💡 **小提示 1：點擊下方的「客戶代號」，可直接跳轉至該客戶的個人速查與編輯頁面！**")
+        st.markdown("💡 **小提示 2：可以直接修改表格中的文字。修改完畢後，務必點擊下方的「💾 儲存修改」按鈕。**")
 
-        st.markdown("💡 **小提示：可以點擊欄位進行編輯。修改完畢，務必點擊下方的「儲存」按鈕。**")
-        
-        edited_df = st.data_editor(
-            display_df, 
-            use_container_width=True,
-            hide_index=True,
-            disabled=["客戶代號", "最後購買管道", "總購買次數", "歷史消費金額", "最後購買日"]
-        )
-        
-        if st.button("💾 儲存", type="primary"):
-            changes_count = 0
-            for cid, row in edited_df.iterrows():
-                orig_row = display_df.loc[cid]
-                if not row.equals(orig_row):
-                    execute_query("""
-                        UPDATE customers 
-                        SET name = :name, customer_source = :src, gender = :gender, 
-                            phone = :phone, phone_backup = :phone_bak, tel = :tel, address = :addr
-                        WHERE customer_id = :cid
-                    """, {
-                        "name": row["姓名"], "src": row["顧客來源"], "gender": row["性別"],
-                        "phone": row["主要手機"], "phone_bak": row["備用手機"], "tel": row["市話"],
-                        "addr": row["常用地址"], "cid": cid
-                    })
-                    changes_count += 1
-            
-            if changes_count > 0:
-                st.cache_data.clear()
-                st.success(f"✅ 成功將 {changes_count} 位客戶的修改同步至資料庫！請按 F5 重新整理網頁。")
-            else:
-                st.info("尚未偵測到任何修改。")
+        # 顯示可直接跳轉與編輯的清單
+        for _, row in df_filtered.iterrows():
+            cid = row['customer_id']
+            ccode = row['客戶代號']
+            cname = row['姓名']
+            cphone = row['主要手機']
+            csrc = row['顧客來源']
+            caddr = row['常用地址']
+            tspent = row['歷史消費金額']
+            tcount = row['總購買次數']
+            tldate = row['最後購買日']
+
+            with st.container():
+                cols = st.columns([1.2, 1.2, 1.2, 1.2, 2, 1, 1, 1.2, 1])
+                with cols[0]:
+                    # 🌟 點擊代號直接跳轉到 Tab 1 編輯頁面
+                    if st.button(f"🔗 {ccode}", key=f"jump_{cid}"):
+                        st.session_state.jump_search_query = ccode
+                        st.rerun()
+                with cols[1]:
+                    new_name = st.text_input("姓名", value=str(cname), key=f"n_{cid}", label_visibility="collapsed")
+                with cols[2]:
+                    new_src = st.selectbox("來源", SOURCES_LIST, index=get_source_idx(csrc), key=f"src_{cid}", label_visibility="collapsed")
+                with cols[3]:
+                    new_phone = st.text_input("手機", value=str(cphone), key=f"p_{cid}", label_visibility="collapsed")
+                with cols[4]:
+                    new_addr = st.text_input("地址", value=str(caddr) if pd.notna(caddr) else "", key=f"a_{cid}", label_visibility="collapsed")
+                with cols[5]:
+                    st.write(f"{tcount}次")
+                with cols[6]:
+                    st.write(f"${tspent:,}")
+                with cols[7]:
+                    st.write(str(tldate) if pd.notna(tldate) else "-")
+                with cols[8]:
+                    # 🗑️ 刪除重複會員按鈕
+                    if st.button("🗑️ 刪除", key=f"del_c_{cid}", type="primary"):
+                        delete_customer(cid)
+                        st.success(f"✅ 已成功刪除會員 【{cname}】 ({ccode})！")
+                        st.rerun()
+            st.divider()
 
         st.markdown("---")
         
@@ -1049,8 +1076,8 @@ with tab6:
 # TAB 5: 批次匯入舊名單與官網訂單報表
 # ==========================================
 with tab5:
-    st.subheader("📥 智慧匯入中心（支援舊會員名單與官網訂單報表）")
-    st.info("💡 系統會自動辨識您上傳的 Excel 格式（支援舊客建檔名單 或 官網訂單報表）。上傳官網報表時，會自動去除多商品拆列的小計重複，精準抓取「訂單編號、訂單金額、訂購商品」寫入對應會員！")
+    st.subheader("📥 智慧匯入中心（以手機號碼為唯一主鍵 - 自動辨識送禮與合併訂單）")
+    st.info("💡 系統會自動以【會員手機號碼】為主要識別依據。若購買人相同但收件人不同，系統會自動將收件人寫入該會員的「第二收件人」中，絕不會重複建立幽靈會員！")
     
     uploaded_file = st.file_uploader("上傳 Excel 檔案（.xlsx）", type=["xlsx", "xls"], key="excel_uploader_tab5")
 
@@ -1081,7 +1108,6 @@ with tab5:
                     if c_phone:
                         phone_to_id[c_phone] = cid
 
-                # 讀取現有訂單代號/編號，防止重複匯入
                 existing_orders_df = read_query("SELECT customer_id, raw_date_code FROM orders WHERE raw_date_code != ''")
                 existing_order_set = set(zip(existing_orders_df['customer_id'].astype(int), existing_orders_df['raw_date_code'].astype(str)))
 
@@ -1092,15 +1118,12 @@ with tab5:
                 for sheet_name in excel_file.sheet_names:
                     df = pd.read_excel(uploaded_file, sheet_name=sheet_name, dtype=str)
                     
-                    # 🔍 自動判斷是否為「官網訂單報表格式」
                     columns_str = "".join(df.columns)
                     is_official_web_report = "訂單編號" in columns_str and "訂單金額" in columns_str
 
                     if is_official_web_report:
-                        status.info("⚡ 偵測到【官網訂單報表】格式，正在進行智慧去重與欄位對應...")
+                        status.info("⚡ 偵測到【官網訂單報表】格式，正在以手機號碼進行智慧對應與去重...")
                         
-                        # 依「訂單編號」分群，確保買多樣商品產生的多列能被正確合併去重
-                        # 每一筆訂單取第一列的時間、名稱、手機、訂單金額、訂購商品
                         cleaned_orders = []
                         for order_id, group in df.groupby('訂單編號'):
                             if pd.isna(order_id) or not str(order_id).strip():
@@ -1115,15 +1138,13 @@ with tab5:
                             except:
                                 amt_val = 0.0
 
-                            # 萃取訂購日期
                             match_date = re.search(r"(\d{4}[-/]\d{2}[-/]\d{2})", time_str)
                             order_date = match_date.group(1).replace("/", "-") if match_date else str(date.today())
 
-                            # 將同訂單編號的所有商品串接起來
                             products = [str(p).strip() for p in group.get("訂購商品", []) if pd.notna(p) and str(p).strip()]
                             product_desc = " / ".join(products) if products else "官網訂購品項"
 
-                            if not name or not phone:
+                            if not phone:
                                 continue
 
                             cleaned_orders.append({
@@ -1164,8 +1185,7 @@ with tab5:
                                     "phone": p1, "phone_backup": "", "tel": "", "address": "官網匯入地址", "created_at": now_str,
                                     "customer_source": "官網"
                                 })
-                                if p1:
-                                    phone_to_id[p1] = cust_code
+                                phone_to_id[p1] = cust_code
                                 code_to_id[cust_code] = cust_code
 
                                 order_tasks.append({
@@ -1179,7 +1199,6 @@ with tab5:
                                 })
 
                     else:
-                        # 舊版一般會員名單格式
                         default_channel = "官網" if "官網" in sheet_name else "電話訂購"
 
                         for _, row in df.iterrows():
@@ -1251,7 +1270,7 @@ with tab5:
                                     })
 
                 bar.progress(50)
-                status.info(f"⚡ [2/3] 正在安全寫入 {len(cust_inserts)} 位全新客戶...")
+                status.info(f"⚡ [2/3] 正在安全寫入 {len(cust_inserts)} 位全新真實會員...")
 
                 engine = get_db_engine()
                 if cust_inserts:
@@ -1291,7 +1310,7 @@ with tab5:
                             "order_date": task["order_date"],
                             "raw_date_code": task["raw_date_code"],
                             "status": task["status"],
-                            "order_notes": f"代號/單號: {task['raw_date_code']}"
+                            "order_notes": f"單號: {task['raw_date_code']}"
                         })
 
                 if final_orders:
@@ -1303,6 +1322,6 @@ with tab5:
 
                 bar.progress(100)
                 status.empty()
-                st.success(f"🎉 智慧匯入大成功！成功新增 **{len(cust_inserts)}** 位新會員，並精準寫入 **{len(final_orders)}** 筆訂單記錄（已自動排除重複小計與商品列）！")
+                st.success(f"🎉 智慧匯入大成功！成功新增 **{len(cust_inserts)}** 位真實新會員（已排除收件人干擾），並精準寫入 **{len(final_orders)}** 筆訂單與金額！")
         except Exception as e:
             st.error(f"匯入錯誤：{e}")

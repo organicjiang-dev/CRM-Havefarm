@@ -21,6 +21,7 @@ SOURCES_LIST = [
     "Google Demand Gen", 
     "LINE 官方帳號", 
     "廣播", 
+    "簡訊", 
     "其他"
 ]
 

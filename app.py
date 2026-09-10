@@ -310,7 +310,6 @@ def update_customer_db(cid, code, name, gender, id_card, phone, phone_bak, tel, 
     st.cache_data.clear()
 
 def delete_customer(cid):
-    # 同步刪除該客戶底下的訂單、電訪紀錄與客戶主檔
     execute_query("DELETE FROM orders WHERE customer_id = :cid", {"cid": cid})
     execute_query("DELETE FROM telemarketing_logs WHERE customer_id = :cid", {"cid": cid})
     execute_query("DELETE FROM customers WHERE customer_id = :cid", {"cid": cid})
@@ -366,17 +365,16 @@ def get_source_idx(src):
         return SOURCES_LIST.index(src)
     return 0
 
-# --- 4. 主介面排版 ---
+# --- 4. 主介面排版 (支援跨 Tab 跳轉狀態維持) ---
 st.title("🌾 有其田 客服管理系統")
 
-# 檢查是否有從總表點擊跳轉過來的請求
-if "jump_to_tab" not in st.session_state:
-    st.session_state.jump_to_tab = 0
+if "active_tab" not in st.session_state:
+    st.session_state.active_tab = 0
 
 if "jump_search_query" not in st.session_state:
     st.session_state.jump_search_query = ""
 
-tab1, tab2, tab3, tab4, tab7, tab6, tab5 = st.tabs([
+tab_labels = [
     "🔍 舊客速查與編輯", 
     "🆕 建立新名單", 
     "👤 歷史訂購紀錄", 
@@ -384,16 +382,19 @@ tab1, tab2, tab3, tab4, tab7, tab6, tab5 = st.tabs([
     "🎯 智慧回購清單",
     "📅 報表與匯出",
     "📥 匯入舊名單與官網訂單報表"
-])
+]
+
+tabs = st.tabs(tab_labels)
 
 # ==========================================
 # TAB 1: 舊客戶速查與編輯
 # ==========================================
-with tab1:
+with tabs[0]:
     st.markdown("### 🔍 舊客戶電話 / 代號 / 姓名極速速查")
     
     default_search = st.session_state.jump_search_query
-    st.session_state.jump_search_query = "" # 讀完清空
+    if default_search:
+        st.session_state.jump_search_query = ""
 
     col_search, _ = st.columns([3, 1])
     with col_search:
@@ -484,6 +485,16 @@ with tab1:
                                 update_customer_db(cid, edit_code, edit_name, edit_gender, edit_id_card, edit_phone, edit_phone_bak, edit_tel, edit_email, edit_addr, edit_r2_name, edit_r2_phone, edit_r2_addr, edit_pref, edit_source)
                                 st.success(f"✅ 客戶【{edit_name}】資料已成功更新！")
                                 st.rerun()
+
+                # 🗑️ 刪除重複會員專區（位於基本資料下方）
+                with st.expander("⚠️ 危險操作區：刪除此會員帳號", expanded=False):
+                    st.warning("若此會員為重複建檔的幽靈帳號，確認後可點擊下方按鈕將其永久刪除（包含歷史訂單）。")
+                    del_cust_chk = st.checkbox(f"我確定要刪除客戶 【{cname}】 ({ccode})", key=f"chk_del_cust_{cid}")
+                    if del_cust_chk:
+                        if st.button(f"🚨 確認永久刪除此會員", key=f"btn_del_cust_{cid}", type="primary"):
+                            delete_customer(cid)
+                            st.success(f"✅ 已成功刪除會員 【{cname}】！")
+                            st.rerun()
 
                 with st.expander("📞 電訪追蹤紀錄與下次提醒（點擊展開/收合）", expanded=False):
                     st.markdown("##### ➕ 新增一通電訪紀錄")
@@ -590,7 +601,7 @@ with tab1:
 # ==========================================
 # TAB 2: 建立全新會員名單
 # ==========================================
-with tab2:
+with tabs[1]:
     st.subheader("🆕 建立全新會員名單（系統自動編排 CRM 代號）")
     auto_code = get_next_crm_code()
     st.info(f"系統已自動指派下一位會員代號：`:blue[**{auto_code}**]`")
@@ -671,7 +682,7 @@ with tab2:
 # ==========================================
 # TAB 3: 歷史訂購紀錄
 # ==========================================
-with tab3:
+with tabs[2]:
     col_t3_title, col_t3_search = st.columns([1, 1])
     with col_t3_title:
         st.subheader("👤 客戶檔案 與 歷史訂購紀錄")
@@ -825,9 +836,9 @@ with tab3:
         st.info("⚠️ 查無符合條件的客戶。")
 
 # ==========================================
-# TAB 4: 客戶名冊總表 (🌟 支援點擊代號跳轉與一鍵刪除)
+# TAB 4: 客戶名冊總表 (🌟 點擊代號跳轉、清爽唯讀表格)
 # ==========================================
-with tab4:
+with tabs[3]:
     st.subheader("📊 客戶名冊總表")
     
     col_filter, _ = st.columns([3, 1])
@@ -867,48 +878,42 @@ with tab4:
         else:
             df_filtered = df_all
 
-        st.markdown("💡 **小提示 1：點擊下方的「客戶代號」，可直接跳轉至該客戶的個人速查與編輯頁面！**")
-        st.markdown("💡 **小提示 2：可以直接修改表格中的文字。修改完畢後，務必點擊下方的「💾 儲存修改」按鈕。**")
+        st.markdown("💡 **小提示：點擊列表中的【客戶代號】，可直接跳轉至該客戶的個人速查與編輯頁面進行管理！**")
 
-        # 顯示可直接跳轉與編輯的清單
-        for _, row in df_filtered.iterrows():
-            cid = row['customer_id']
-            ccode = row['客戶代號']
-            cname = row['姓名']
-            cphone = row['主要手機']
-            csrc = row['顧客來源']
-            caddr = row['常用地址']
-            tspent = row['歷史消費金額']
-            tcount = row['總購買次數']
-            tldate = row['最後購買日']
+        display_df = df_filtered.drop(columns=["customer_id", "歷史訂購紀錄明細"])
+
+        # 使用更乾淨、安全的唯讀表格展示，並提供按鈕點擊跳轉
+        for _, row in display_df.iterrows():
+            ccode = row["客戶代號"]
+            cname = row["姓名"]
+            csrc = row["顧客來源"]
+            cphone = row["主要手機"]
+            caddr = row["常用地址"]
+            ccnt = row["總購買次數"]
+            camt = row["歷史消費金額"]
+            cdate = row["最後購買日"]
 
             with st.container():
-                cols = st.columns([1.2, 1.2, 1.2, 1.2, 2, 1, 1, 1.2, 1])
-                with cols[0]:
-                    # 🌟 點擊代號直接跳轉到 Tab 1 編輯頁面
-                    if st.button(f"🔗 {ccode}", key=f"jump_{cid}"):
+                c_cols = st.columns([1.2, 1.2, 1.5, 1.5, 2.5, 1, 1.2, 1.2])
+                with c_cols[0]:
+                    if st.button(f"🔗 {ccode}", key=f"tbl_jump_{ccode}"):
                         st.session_state.jump_search_query = ccode
+                        st.session_state.active_tab = 0
                         st.rerun()
-                with cols[1]:
-                    new_name = st.text_input("姓名", value=str(cname), key=f"n_{cid}", label_visibility="collapsed")
-                with cols[2]:
-                    new_src = st.selectbox("來源", SOURCES_LIST, index=get_source_idx(csrc), key=f"src_{cid}", label_visibility="collapsed")
-                with cols[3]:
-                    new_phone = st.text_input("手機", value=str(cphone), key=f"p_{cid}", label_visibility="collapsed")
-                with cols[4]:
-                    new_addr = st.text_input("地址", value=str(caddr) if pd.notna(caddr) else "", key=f"a_{cid}", label_visibility="collapsed")
-                with cols[5]:
-                    st.write(f"{tcount}次")
-                with cols[6]:
-                    st.write(f"${tspent:,}")
-                with cols[7]:
-                    st.write(str(tldate) if pd.notna(tldate) else "-")
-                with cols[8]:
-                    # 🗑️ 刪除重複會員按鈕
-                    if st.button("🗑️ 刪除", key=f"del_c_{cid}", type="primary"):
-                        delete_customer(cid)
-                        st.success(f"✅ 已成功刪除會員 【{cname}】 ({ccode})！")
-                        st.rerun()
+                with c_cols[1]:
+                    st.write(str(cname))
+                with c_cols[2]:
+                    st.write(str(csrc))
+                with c_cols[3]:
+                    st.write(str(cphone))
+                with c_cols[4]:
+                    st.write(str(caddr) if pd.notna(caddr) else "-")
+                with c_cols[5]:
+                    st.write(f"{ccnt}次")
+                with c_cols[6]:
+                    st.write(f"${camt:,}")
+                with c_cols[7]:
+                    st.write(str(cdate) if pd.notna(cdate) else "-")
             st.divider()
 
         st.markdown("---")
@@ -930,7 +935,7 @@ with tab4:
 # ==========================================
 # TAB 7: 🎯 智慧回購清單與電銷戰情室
 # ==========================================
-with tab7:
+with tabs[4]:
     st.subheader("🎯 智慧回購清單與電銷追蹤戰情室")
     st.markdown("系統自動幫您篩選出「今日需要再次電訪」以及「超過 180 天未回購的沉睡客」名單，點擊即可直接展開聯繫！")
 
@@ -1002,7 +1007,7 @@ with tab7:
 # ==========================================
 # TAB 6: 期間訂單報表與電銷績效匯出
 # ==========================================
-with tab6:
+with tabs[5]:
     st.subheader("📅 期間訂單紀錄與電話行銷成效報表")
     
     report_type = st.radio("選擇要產生的報表類型：", ["📦 期間訂單明細報表", "📞 電話行銷漏斗與客服績效報表"], horizontal=True)
@@ -1075,7 +1080,7 @@ with tab6:
 # ==========================================
 # TAB 5: 批次匯入舊名單與官網訂單報表
 # ==========================================
-with tab5:
+with tabs[6]:
     st.subheader("📥 智慧匯入中心（以手機號碼為唯一主鍵 - 自動辨識送禮與合併訂單）")
     st.info("💡 系統會自動以【會員手機號碼】為主要識別依據。若購買人相同但收件人不同，系統會自動將收件人寫入該會員的「第二收件人」中，絕不會重複建立幽靈會員！")
     

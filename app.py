@@ -29,13 +29,6 @@ SOURCES_LIST = [
 st.markdown("""
 <style>
 html, body, [class*="css"] { font-size: 24px !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif !important; }
-div[data-testid="stTabs"] { overflow: visible !important; }
-div[data-testid="stTabs"] > div { overflow: visible !important; }
-div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { gap: 50px !important; padding-top: 35px !important; padding-bottom: 10px !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"] { transform: scale(1.8) !important; transform-origin: left bottom !important; background-color: #f7fafc !important; border-radius: 6px 6px 0 0 !important; border: 1px solid #cbd5e0 !important; border-bottom: none !important; margin-right: 25px !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"] * { font-weight: 900 !important; color: #4a5568 !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] { border-top: 4px solid #e53e3e !important; background-color: #fff5f5 !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] * { color: #e53e3e !important; }
 h1 { font-size: 45px !important; font-weight: 900 !important; margin-bottom: 24px !important; }
 h2, h3 { font-size: 34px !important; font-weight: 800 !important; margin-top: 20px !important; margin-bottom: 16px !important; }
 h4, h5 { font-size: 28px !important; font-weight: 700 !important; margin-top: 16px !important; color: #2b6cb0 !important; }
@@ -365,11 +358,11 @@ def get_source_idx(src):
         return SOURCES_LIST.index(src)
     return 0
 
-# --- 4. 主介面排版 (支援跨 Tab 跳轉狀態維持) ---
+# --- 4. 主介面排版 (使用支援狀態控制的導覽列) ---
 st.title("🌾 有其田 客服管理系統")
 
-if "active_tab" not in st.session_state:
-    st.session_state.active_tab = 0
+if "active_tab_idx" not in st.session_state:
+    st.session_state.active_tab_idx = 0
 
 if "jump_search_query" not in st.session_state:
     st.session_state.jump_search_query = ""
@@ -384,12 +377,17 @@ tab_labels = [
     "📥 匯入舊名單與官網訂單報表"
 ]
 
-tabs = st.tabs(tab_labels)
+# 導覽列選擇
+selected_tab = st.radio("導覽分頁", tab_labels, index=st.session_state.active_tab_idx, horizontal=True, label_visibility="collapsed")
+current_tab_index = tab_labels.index(selected_tab)
+st.session_state.active_tab_idx = current_tab_index
+
+st.markdown("---")
 
 # ==========================================
-# TAB 1: 舊客戶速查與編輯
+# TAB 0: 舊客戶速查與編輯
 # ==========================================
-with tabs[0]:
+if current_tab_index == 0:
     st.markdown("### 🔍 舊客戶電話 / 代號 / 姓名極速速查")
     
     default_search = st.session_state.jump_search_query
@@ -599,9 +597,9 @@ with tabs[0]:
                             st.rerun()
 
 # ==========================================
-# TAB 2: 建立全新會員名單
+# TAB 1: 建立全新會員名單
 # ==========================================
-with tabs[1]:
+elif current_tab_index == 1:
     st.subheader("🆕 建立全新會員名單（系統自動編排 CRM 代號）")
     auto_code = get_next_crm_code()
     st.info(f"系統已自動指派下一位會員代號：`:blue[**{auto_code}**]`")
@@ -680,9 +678,9 @@ with tabs[1]:
                 st.rerun()
 
 # ==========================================
-# TAB 3: 歷史訂購紀錄
+# TAB 2: 歷史訂購紀錄
 # ==========================================
-with tabs[2]:
+elif current_tab_index == 2:
     col_t3_title, col_t3_search = st.columns([1, 1])
     with col_t3_title:
         st.subheader("👤 客戶檔案 與 歷史訂購紀錄")
@@ -836,9 +834,9 @@ with tabs[2]:
         st.info("⚠️ 查無符合條件的客戶。")
 
 # ==========================================
-# TAB 4: 客戶名冊總表 (🌟 點擊代號跳轉、清爽唯讀表格)
+# TAB 3: 客戶名冊總表 (🌟 清爽唯讀表格 + 點擊代號瞬間跳轉)
 # ==========================================
-with tabs[3]:
+elif current_tab_index == 3:
     st.subheader("📊 客戶名冊總表")
     
     col_filter, _ = st.columns([3, 1])
@@ -882,7 +880,7 @@ with tabs[3]:
 
         display_df = df_filtered.drop(columns=["customer_id", "歷史訂購紀錄明細"])
 
-        # 使用更乾淨、安全的唯讀表格展示，並提供按鈕點擊跳轉
+        # 清爽唯讀表格呈現
         for _, row in display_df.iterrows():
             ccode = row["客戶代號"]
             cname = row["姓名"]
@@ -898,7 +896,7 @@ with tabs[3]:
                 with c_cols[0]:
                     if st.button(f"🔗 {ccode}", key=f"tbl_jump_{ccode}"):
                         st.session_state.jump_search_query = ccode
-                        st.session_state.active_tab = 0
+                        st.session_state.active_tab_idx = 0
                         st.rerun()
                 with c_cols[1]:
                     st.write(str(cname))
@@ -933,9 +931,9 @@ with tabs[3]:
         st.info("尚無客戶資料。")
 
 # ==========================================
-# TAB 7: 🎯 智慧回購清單與電銷戰情室
+# TAB 4: 智慧回購清單與電銷戰情室
 # ==========================================
-with tabs[4]:
+elif current_tab_index == 4:
     st.subheader("🎯 智慧回購清單與電銷追蹤戰情室")
     st.markdown("系統自動幫您篩選出「今日需要再次電訪」以及「超過 180 天未回購的沉睡客」名單，點擊即可直接展開聯繫！")
 
@@ -1005,9 +1003,9 @@ with tabs[4]:
             )
 
 # ==========================================
-# TAB 6: 期間訂單報表與電銷績效匯出
+# TAB 5: 期間訂單報表與電銷績效匯出
 # ==========================================
-with tabs[5]:
+elif current_tab_index == 5:
     st.subheader("📅 期間訂單紀錄與電話行銷成效報表")
     
     report_type = st.radio("選擇要產生的報表類型：", ["📦 期間訂單明細報表", "📞 電話行銷漏斗與客服績效報表"], horizontal=True)
@@ -1078,9 +1076,9 @@ with tabs[5]:
                     st.download_button("📥 下載電銷績效報表 (XLSX)", out.getvalue(), f"有其田_電銷績效報表_{start_date}至{end_date}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # ==========================================
-# TAB 5: 批次匯入舊名單與官網訂單報表
+# TAB 6: 批次匯入舊名單與官網訂單報表
 # ==========================================
-with tabs[6]:
+elif current_tab_index == 6:
     st.subheader("📥 智慧匯入中心（以手機號碼為唯一主鍵 - 自動辨識送禮與合併訂單）")
     st.info("💡 系統會自動以【會員手機號碼】為主要識別依據。若購買人相同但收件人不同，系統會自動將收件人寫入該會員的「第二收件人」中，絕不會重複建立幽靈會員！")
     

@@ -51,6 +51,9 @@ details summary p, details summary span { font-size: 26px !important; font-weigh
 div[data-testid="stDataFrame"] { font-size: 22px !important; }
 div[data-testid="column"] { padding: 0 16px !important; }
 hr { margin: 36px 0 !important; border: 0 !important; border-top: 3px solid #cbd5e0 !important; }
+
+/* 🌟 電訪區塊專屬：淺綠色視覺區隔 */
+div.streamlit-expanderHeader:has(span:contains("電訪追蹤紀錄")) { background-color: #f0fff4 !important; border: 2px solid #38a169 !important; border-radius: 10px !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -185,7 +188,17 @@ def read_query(query, params=None):
     with engine.connect() as conn:
         return pd.read_sql_query(text(query), conn, params=params or {})
 
-# --- 3. 輔助轉換與精準搜尋 ---
+# 🚀 【效能加速優化】快取全體客戶基礎名單，實現毫秒級搜尋
+@st.cache_data(ttl=600)
+def get_cached_customers_df():
+    return read_query("""
+        SELECT customer_id, customer_code, name, gender, id_card, phone, phone_backup, tel, email, 
+               address, recipient2_name, recipient2_phone, recipient2_address, dietary_preference, created_at, customer_source
+        FROM customers
+        ORDER BY customer_code DESC, customer_id DESC
+    """)
+
+# --- 3. 輔助轉換與極速記憶體搜尋 ---
 def parse_date_code(val_str, default_channel="官網"):
     raw = str(val_str).strip()
     channel = default_channel
@@ -213,7 +226,7 @@ def parse_date_code(val_str, default_channel="官網"):
     return channel, raw, raw
 
 def get_next_crm_code():
-    df = read_query("SELECT customer_code FROM customers WHERE customer_code LIKE 'CRM%'")
+    df = get_cached_customers_df()
     max_num = 8759
     for _, r in df.iterrows():
         code_str = str(r['customer_code']).strip()
@@ -238,40 +251,41 @@ def clean_phone(p):
         s = "0" + s
     return s
 
-def search_customers_accurate(query_str):
+# 🚀 毫秒級極速記憶體內搜尋（瞬間過濾，不再轉圈圈）
+def search_customers_fast(query_str):
     q = str(query_str).strip()
     if not q:
         return []
-    clean_q = clean_phone(q)
     
-    conditions = ["name LIKE :q_name", "customer_code LIKE :q_code"]
-    params = {"q_name": f"%{q}%", "q_code": f"%{q.upper()}%"}
+    df = get_cached_customers_df()
+    if df.empty:
+        return []
+    
+    q_lower = q.lower()
+    q_clean = clean_phone(q)
 
-    if clean_q and len(clean_q) >= 4:
-        conditions.append("phone LIKE :q_phone")
-        conditions.append("phone_backup LIKE :q_phone")
-        conditions.append("recipient2_phone LIKE :q_phone")
-        conditions.append("tel LIKE :q_phone")
-        params["q_phone"] = f"%{clean_q}%"
+    # 建立條件遮罩
+    mask = (
+        df['name'].str.lower().str.contains(q_lower, na=False) |
+        df['customer_code'].str.lower().str.contains(q_lower, na=False)
+    )
 
-    sql = f"""
-        SELECT customer_id, customer_code, name, gender, id_card, phone, phone_backup, tel, email, 
-               address, recipient2_name, recipient2_phone, recipient2_address, dietary_preference, created_at, customer_source
-        FROM customers
-        WHERE {" OR ".join(conditions)}
-        ORDER BY customer_code DESC, customer_id DESC
-    """
-    df = read_query(sql, params)
-    return df.to_records(index=False).tolist()
+    if q_clean and len(q_clean) >= 3:
+        mask = mask | (
+            df['phone'].str.contains(q_clean, na=False) |
+            df['phone_backup'].str.contains(q_clean, na=False) |
+            df['recipient2_phone'].str.contains(q_clean, na=False) |
+            df['tel'].str.contains(q_clean, na=False)
+        )
+
+    matched_df = df[mask]
+    return matched_df.to_records(index=False).tolist()
 
 def get_customer_by_id(cid):
-    df = read_query("""
-        SELECT customer_id, customer_code, name, gender, id_card, phone, phone_backup, tel, email, 
-               address, recipient2_name, recipient2_phone, recipient2_address, dietary_preference, created_at, customer_source
-        FROM customers WHERE customer_id = :cid
-    """, {"cid": cid})
-    if not df.empty:
-        return df.iloc[0].to_dict()
+    df = get_cached_customers_df()
+    target = df[df['customer_id'] == cid]
+    if not target.empty:
+        return target.iloc[0].to_dict()
     return None
 
 def get_customer_history(customer_id):
@@ -295,6 +309,8 @@ def update_customer_db(cid, code, name, gender, id_card, phone, phone_bak, tel, 
         "phone": clean_phone(phone), "phone_bak": phone_bak, "tel": tel, "email": email,
         "addr": addr, "r2_name": r2_name, "r2_phone": clean_phone(r2_phone), "r2_addr": r2_addr, "pref": pref, "source": source, "cid": cid
     })
+    # 清除快取，確保資料即時同步
+    st.cache_data.clear()
 
 def delete_order(order_id):
     execute_query("DELETE FROM orders WHERE order_id = :oid", {"oid": order_id})
@@ -360,10 +376,10 @@ tab1, tab2, tab3, tab4, tab7, tab6, tab5 = st.tabs([
 ])
 
 # ==========================================
-# TAB 1: 舊客戶速查與編輯
+# TAB 1: 舊客戶速查與編輯 (⚡ 極速搜尋版)
 # ==========================================
 with tab1:
-    st.markdown("### 🔍 舊客戶電話 / 代號 / 姓名速查")
+    st.markdown("### 🔍 舊客戶電話 / 代號 / 姓名極速速查")
     
     col_search, _ = st.columns([3, 1])
     with col_search:
@@ -374,7 +390,7 @@ with tab1:
         ).strip()
 
     if search_query:
-        matched_custs = search_customers_accurate(search_query)
+        matched_custs = search_customers_fast(search_query)
         if not matched_custs:
             st.warning(f"⚠️ 查無包含『{search_query}』的客戶資料！若為新客戶請至上方【🆕 建立全新會員名單】分頁。")
         else:
@@ -416,7 +432,48 @@ with tab1:
                 m2.metric("累積消費金額", f"NT$ {total_spent:,}")
                 m3.metric("初次建檔時間", str(ccreated).split()[0] if ccreated else "-")
 
+                # --- 1. 基本資料與收件人設定 (上方) ---
+                with st.expander(f"✏️ 點擊展開／收合【{cname}】的基本資料與收件人設定", expanded=True):
+                    with st.form(key=f"edit_cust_form_tab1_{cid}"):
+                        st.markdown("##### 👤 【本人】基本資料與常用收件地址")
+                        ec1, ec2, ec3 = st.columns(3)
+                        with ec1:
+                            edit_code = st.text_input("客戶代號", value=ccode if ccode else "")
+                            edit_name = st.text_input("客戶姓名 *", value=cname if cname else "")
+                            edit_gender = st.selectbox("性別", ["女", "男", "其他"], index=0 if cgender == "女" else (1 if cgender == "男" else 2))
+                        with ec2:
+                            edit_phone = st.text_input("主要手機 *", value=cphone if cphone else "")
+                            edit_phone_bak = st.text_input("備用手機", value=cphone_bak if cphone_bak else "")
+                            edit_tel = st.text_input("市話電話", value=ctel if ctel else "")
+                        with ec3:
+                            edit_id_card = st.text_input("身分證號 / 統編", value=cid_card if cid_card else "")
+                            edit_email = st.text_input("EMAIL", value=cemail if cemail else "")
+                            edit_source = st.selectbox("顧客來源 (廣告追蹤)", SOURCES_LIST, index=get_source_idx(csource))
+
+                        edit_addr = st.text_input("常用收件地址 (本人) *", value=caddr if caddr else "")
+                        edit_pref = st.text_input("飲食偏好 / 重要備註", value=cpref if cpref else "", placeholder="例：只吃無糖、全素、需代收")
+
+                        st.markdown("##### 🎁 【送禮專用 / 第二收件人】資料")
+                        r2_c1, r2_c2 = st.columns(2)
+                        with r2_c1:
+                            edit_r2_name = st.text_input("第二收件人姓名 (送禮對象)", value=cr2_name if cr2_name else "")
+                        with r2_c2:
+                            edit_r2_phone = st.text_input("第二收件人手機 (送禮電話)", value=cr2_phone if cr2_phone else "")
+                        edit_r2_addr = st.text_input("第二收件地址 (送禮地址)", value=cr2_addr if cr2_addr else "")
+
+                        save_cust_btn = st.form_submit_button("💾 儲存並更新客戶資料")
+
+                        if save_cust_btn:
+                            if not edit_name or not edit_phone or not edit_addr:
+                                st.error("姓名、主要手機與常用收件地址不可為空！")
+                            else:
+                                update_customer_db(cid, edit_code, edit_name, edit_gender, edit_id_card, edit_phone, edit_phone_bak, edit_tel, edit_email, edit_addr, edit_r2_name, edit_r2_phone, edit_r2_addr, edit_pref, edit_source)
+                                st.success(f"✅ 客戶【{edit_name}】資料已成功更新！")
+                                st.rerun()
+
+                # --- 2. 電訪追蹤紀錄與下次提醒 (下方，淺綠色區隔) ---
                 with st.expander("📞 電訪追蹤紀錄與下次提醒（點擊展開/收合）", expanded=False):
+                    st.markdown("##### ➕ 新增一通電訪紀錄")
                     with st.form(key=f"tele_form_tab1_{cid}", clear_on_submit=True):
                         tc_col1, tc_col2 = st.columns(2)
                         with tc_col1:
@@ -440,55 +497,51 @@ with tab1:
                             st.success("✅ 電訪紀錄已成功儲存！")
                             st.rerun()
 
-                    past_logs = read_query("SELECT agent_name, call_status, call_notes, next_followup_date, created_at FROM telemarketing_logs WHERE customer_id = :cid ORDER BY created_at DESC", {"cid": cid})
+                    past_logs = read_query("SELECT log_id, agent_name, call_status, call_notes, next_followup_date, created_at FROM telemarketing_logs WHERE customer_id = :cid ORDER BY created_at DESC", {"cid": cid})
                     if not past_logs.empty:
-                        st.write("**歷史電訪紀錄：**")
+                        st.markdown("---")
+                        st.markdown("##### ✏️ 歷史電訪紀錄（展開可直接修改）")
                         for _, plog in past_logs.iterrows():
-                            nd_str = f" | 🔔 下次提醒: {plog['next_followup_date']}" if pd.notna(plog['next_followup_date']) else ""
-                            st.caption(f"[{str(plog['created_at'])[:16]}] 專員: {plog['agent_name']} | 狀態: **{plog['call_status']}**{nd_str} — 備註: {plog['call_notes']}")
+                            log_id = plog['log_id']
+                            nd_display = str(plog['next_followup_date']) if pd.notna(plog['next_followup_date']) else "無"
+                            
+                            with st.expander(f"🕒 [{str(plog['created_at'])[:16]}] 專員: {plog['agent_name']} | 狀態: {plog['call_status']} | 提醒: {nd_display}", expanded=False):
+                                with st.form(key=f"edit_tele_form_{cid}_{log_id}"):
+                                    e_t1, e_t2 = st.columns(2)
+                                    with e_t1:
+                                        e_status = st.selectbox("撥打狀態", ["成功下單", "考慮中", "無人接聽", "拒絕/空號"], index=["成功下單", "考慮中", "無人接聽", "拒絕/空號"].index(plog['call_status']) if plog['call_status'] in ["成功下單", "考慮中", "無人接聽", "拒絕/空號"] else 0)
+                                        try:
+                                            default_nd = datetime.strptime(str(plog['next_followup_date']), "%Y-%m-%d").date() if pd.notna(plog['next_followup_date']) else None
+                                        except:
+                                            default_nd = None
+                                        e_ndate = st.date_input("下次提醒再訪日", value=default_nd)
+                                    with e_t2:
+                                        e_notes = st.text_area("電訪筆記", value=str(plog['call_notes']) if pd.notna(plog['call_notes']) else "")
+
+                                    e_save_btn = st.form_submit_button("💾 儲存此筆電訪修改")
+                                    if e_save_btn:
+                                        execute_query("""
+                                            UPDATE telemarketing_logs 
+                                            SET call_status = :status, call_notes = :notes, next_followup_date = :ndate
+                                            WHERE log_id = :lid
+                                        """, {
+                                            "status": e_status,
+                                            "notes": e_notes,
+                                            "ndate": e_ndate if e_ndate else None,
+                                            "lid": log_id
+                                        })
+                                        st.success("✅ 電訪紀錄修改成功！")
+                                        st.rerun()
+
+                                del_tele_chk = st.checkbox(f"⚠️ 確認刪除此筆電訪紀錄 (#{log_id})？", key=f"del_tele_chk_{log_id}")
+                                if del_tele_chk:
+                                    if st.button("🚨 確認刪除電訪", key=f"btn_del_tele_{log_id}"):
+                                        execute_query("DELETE FROM telemarketing_logs WHERE log_id = :lid", {"lid": log_id})
+                                        st.success("✅ 已刪除該筆電訪紀錄！")
+                                        st.rerun()
 
                 st.markdown("#### 📜 歷史購買紀錄 (點擊可展開編輯與刪除)")
                 render_editable_orders(history_df, "tab1")
-
-                st.markdown("---")
-                st.subheader("✏️ 編輯客戶基本資料與收件資訊")
-
-                with st.form(key=f"edit_cust_form_tab1_{cid}"):
-                    st.markdown("##### 👤 【本人】基本資料與常用收件地址")
-                    ec1, ec2, ec3 = st.columns(3)
-                    with ec1:
-                        edit_code = st.text_input("客戶代號", value=ccode if ccode else "")
-                        edit_name = st.text_input("客戶姓名 *", value=cname if cname else "")
-                        edit_gender = st.selectbox("性別", ["女", "男", "其他"], index=0 if cgender == "女" else (1 if cgender == "男" else 2))
-                    with ec2:
-                        edit_phone = st.text_input("主要手機 *", value=cphone if cphone else "")
-                        edit_phone_bak = st.text_input("備用手機", value=cphone_bak if cphone_bak else "")
-                        edit_tel = st.text_input("市話電話", value=ctel if ctel else "")
-                    with ec3:
-                        edit_id_card = st.text_input("身分證號 / 統編", value=cid_card if cid_card else "")
-                        edit_email = st.text_input("EMAIL", value=cemail if cemail else "")
-                        edit_source = st.selectbox("顧客來源 (廣告追蹤)", SOURCES_LIST, index=get_source_idx(csource))
-
-                    edit_addr = st.text_input("常用收件地址 (本人) *", value=caddr if caddr else "")
-                    edit_pref = st.text_input("飲食偏好 / 重要備註", value=cpref if cpref else "", placeholder="例：只吃無糖、全素、需代收")
-
-                    st.markdown("##### 🎁 【送禮專用 / 第二收件人】資料")
-                    r2_c1, r2_c2 = st.columns(2)
-                    with r2_c1:
-                        edit_r2_name = st.text_input("第二收件人姓名 (送禮對象)", value=cr2_name if cr2_name else "")
-                    with r2_c2:
-                        edit_r2_phone = st.text_input("第二收件人手機 (送禮電話)", value=cr2_phone if cr2_phone else "")
-                    edit_r2_addr = st.text_input("第二收件地址 (送禮地址)", value=cr2_addr if cr2_addr else "")
-
-                    save_cust_btn = st.form_submit_button("💾 儲存並更新客戶資料")
-
-                    if save_cust_btn:
-                        if not edit_name or not edit_phone or not edit_addr:
-                            st.error("姓名、主要手機與常用收件地址不可為空！")
-                        else:
-                            update_customer_db(cid, edit_code, edit_name, edit_gender, edit_id_card, edit_phone, edit_phone_bak, edit_tel, edit_email, edit_addr, edit_r2_name, edit_r2_phone, edit_r2_addr, edit_pref, edit_source)
-                            st.success(f"✅ 客戶【{edit_name}】資料已成功更新！")
-                            st.rerun()
 
                 st.markdown("---")
                 st.subheader(f"📦 為【{cname}】新增訂單")
@@ -587,6 +640,7 @@ with tab2:
                     "r2_addr": n_r2_addr, "pref": n_pref, "created_at": now_str, "source": n_source
                 })
                 new_cid = res.fetchone()[0]
+                st.cache_data.clear()
 
                 if n_prod:
                     chan_clean = "電話訂購" if "電話" in n_channel else ("官網" if "官網" in n_channel else n_channel)
@@ -611,15 +665,15 @@ with tab3:
     with col_t3_search:
         t3_search = st.text_input("🔍 搜尋客戶 (請輸入姓名、手機或代號)：", key="tab3_search").strip()
 
+    df_cache = get_cached_customers_df()
     if t3_search:
-        matched_t3 = search_customers_accurate(t3_search)
+        matched_t3 = search_customers_fast(t3_search)
         if matched_t3:
             c_opts = {f"[{c[1]}] {c[2]} ({c[5]})": c[0] for c in matched_t3}
         else:
             c_opts = {}
     else:
-        all_df = read_query("SELECT customer_id, customer_code, name, phone FROM customers ORDER BY customer_code DESC, customer_id DESC")
-        c_opts = {f"[{row['customer_code']}] {row['name']} ({row['phone']})": row['customer_id'] for _, row in all_df.iterrows()}
+        c_opts = {f"[{row['customer_code']}] {row['name']} ({row['phone']})": row['customer_id'] for _, row in df_cache.iterrows()}
 
     if c_opts:
         sel_label = st.selectbox("選擇要檢視或編輯的客戶：", list(c_opts.keys()), key="timeline_select_cust")
@@ -649,37 +703,7 @@ with tab3:
             m1.metric("累積購買次數", f"{len(h_df)} 次")
             m2.metric("累積消費金額", f"NT$ {h_df['amount'].sum():,}")
 
-            with st.expander("📞 電訪追蹤紀錄與下次提醒（點擊展開/收合）", expanded=False):
-                with st.form(key=f"tele_form_tab3_{cid}", clear_on_submit=True):
-                    tc_col1, tc_col2 = st.columns(2)
-                    with tc_col1:
-                        call_status = st.selectbox("撥打狀態", ["成功下單", "考慮中", "無人接聽", "拒絕/空號"])
-                        next_date = st.date_input("下次提醒再訪日 (選填)", value=None)
-                    with tc_col2:
-                        call_notes = st.text_area("電訪筆記與備註", placeholder="例：詢問燕麥奶庫存狀況，表示下週回電。")
-
-                    save_call_btn = st.form_submit_button("📞 儲存這通電訪紀錄")
-                    if save_call_btn:
-                        execute_query("""
-                            INSERT INTO telemarketing_logs (customer_id, agent_name, call_status, call_notes, next_followup_date)
-                            VALUES (:cid, :agent, :status, :notes, :ndate)
-                        """, {
-                            "cid": cid,
-                            "agent": st.session_state.username,
-                            "status": call_status,
-                            "notes": call_notes,
-                            "ndate": next_date if next_date else None
-                        })
-                        st.success("✅ 電訪紀錄已成功儲存！")
-                        st.rerun()
-
-                past_logs = read_query("SELECT agent_name, call_status, call_notes, next_followup_date, created_at FROM telemarketing_logs WHERE customer_id = :cid ORDER BY created_at DESC", {"cid": cid})
-                if not past_logs.empty:
-                    st.write("**歷史電訪紀錄：**")
-                    for _, plog in past_logs.iterrows():
-                        nd_str = f" | 🔔 下次提醒: {plog['next_followup_date']}" if pd.notna(plog['next_followup_date']) else ""
-                        st.caption(f"[{str(plog['created_at'])[:16]}] 專員: {plog['agent_name']} | 狀態: **{plog['call_status']}**{nd_str} — 備註: {plog['call_notes']}")
-
+            # --- 1. 基本資料與收件人設定 (上方) ---
             with st.expander(f"✏️ 點擊展開／收合【{cname}】的基本資料與收件人設定", expanded=True):
                 with st.form(key=f"edit_cust_form_tab3_{cid}"):
                     st.markdown("##### 👤 本人資料與常用地址")
@@ -713,6 +737,75 @@ with tab3:
                         update_customer_db(cid, t_code, t_name, t_gender, t_id_card, t_phone, t_phone_bak, t_tel, t_email, t_addr, t_r2_name, t_r2_phone, t_r2_addr, t_pref, t_source)
                         st.success("✅ 客戶資料已同步更新！")
                         st.rerun()
+
+            # --- 2. 電訪追蹤紀錄與下次提醒 (下方，淺綠色區隔) ---
+            with st.expander("📞 電訪追蹤紀錄與下次提醒（點擊展開/收合）", expanded=False):
+                st.markdown("##### ➕ 新增一通電訪紀錄")
+                with st.form(key=f"tele_form_tab3_{cid}", clear_on_submit=True):
+                    tc_col1, tc_col2 = st.columns(2)
+                    with tc_col1:
+                        call_status = st.selectbox("撥打狀態", ["成功下單", "考慮中", "無人接聽", "拒絕/空號"])
+                        next_date = st.date_input("下次提醒再訪日 (選填)", value=None)
+                    with tc_col2:
+                        call_notes = st.text_area("電訪筆記與備註", placeholder="例：詢問燕麥奶庫存狀況，表示下週回電。")
+
+                    save_call_btn = st.form_submit_button("📞 儲存這通電訪紀錄")
+                    if save_call_btn:
+                        execute_query("""
+                            INSERT INTO telemarketing_logs (customer_id, agent_name, call_status, call_notes, next_followup_date)
+                            VALUES (:cid, :agent, :status, :notes, :ndate)
+                        """, {
+                            "cid": cid,
+                            "agent": st.session_state.username,
+                            "status": call_status,
+                            "notes": call_notes,
+                            "ndate": next_date if next_date else None
+                        })
+                        st.success("✅ 電訪紀錄已成功儲存！")
+                        st.rerun()
+
+                past_logs = read_query("SELECT log_id, agent_name, call_status, call_notes, next_followup_date, created_at FROM telemarketing_logs WHERE customer_id = :cid ORDER BY created_at DESC", {"cid": cid})
+                if not past_logs.empty:
+                    st.markdown("---")
+                    st.markdown("##### ✏️ 歷史電訪紀錄（展開可直接修改）")
+                    for _, plog in past_logs.iterrows():
+                        log_id = plog['log_id']
+                        nd_display = str(plog['next_followup_date']) if pd.notna(plog['next_followup_date']) else "無"
+                        
+                        with st.expander(f"🕒 [{str(plog['created_at'])[:16]}] 專員: {plog['agent_name']} | 狀態: {plog['call_status']} | 提醒: {nd_display}", expanded=False):
+                            with st.form(key=f"edit_tele_form_t3_{cid}_{log_id}"):
+                                e_t1, e_t2 = st.columns(2)
+                                with e_t1:
+                                    e_status = st.selectbox("撥打狀態", ["成功下單", "考慮中", "無人接聽", "拒絕/空號"], index=["成功下單", "考慮中", "無人接聽", "拒絕/空號"].index(plog['call_status']) if plog['call_status'] in ["成功下單", "考慮中", "無人接聽", "拒絕/空號"] else 0)
+                                    try:
+                                        default_nd = datetime.strptime(str(plog['next_followup_date']), "%Y-%m-%d").date() if pd.notna(plog['next_followup_date']) else None
+                                    except:
+                                        default_nd = None
+                                    e_ndate = st.date_input("下次提醒再訪日", value=default_nd)
+                                with e_t2:
+                                    e_notes = st.text_area("電訪筆記", value=str(plog['call_notes']) if pd.notna(plog['call_notes']) else "")
+
+                                e_save_btn = st.form_submit_button("💾 儲存此筆電訪修改")
+                                if e_save_btn:
+                                    execute_query("""
+                                        UPDATE telemarketing_logs 
+                                        SET call_status = :status, call_notes = :notes, next_followup_date = :ndate
+                                        WHERE log_id = :lid
+                                    """, {
+                                        "status": e_status,
+                                        "notes": e_notes,
+                                        "ndate": e_ndate if e_ndate else None,
+                                        "lid": log_id
+                                    })
+                                    st.success("✅ 電訪紀錄修改成功！")
+                                    st.rerun()
+
+                            del_tele_chk = st.checkbox(f"⚠️ 確認刪除此筆電訪紀錄 (#{log_id})？", key=f"del_tele_chk_t3_{log_id}")
+                            if del_tele_chk:
+                                if st.button("🚨 確認刪除電訪", key=f"btn_del_tele_t3_{log_id}"):
+                                    execute_query("DELETE FROM telemarketing_logs WHERE log_id = :lid", {"lid": log_id})
+                                    st.success("✅ 已刪除該筆電訪紀錄！")
+                                    st.rerun()
 
             st.markdown("---")
             st.write("**⏳ 歷史訂單與購買軌跡（支援修改或刪除）：**")
@@ -791,8 +884,9 @@ with tab4:
                         "addr": row["常用地址"], "cid": cid
                     })
                     changes_count += 1
-                    
+            
             if changes_count > 0:
+                st.cache_data.clear() # 清除快取以同步極速搜尋
                 st.success(f"✅ 成功將 {changes_count} 位客戶的修改同步至資料庫！請按 F5 重新整理網頁。")
             else:
                 st.info("尚未偵測到任何修改。")
@@ -814,7 +908,7 @@ with tab4:
         st.info("尚無客戶資料。")
 
 # ==========================================
-# TAB 7: 🎯 智慧回購清單與電銷戰情室 (已由 Python 安全計算 180 天)
+# TAB 7: 🎯 智慧回購清單與電銷戰情室
 # ==========================================
 with tab7:
     st.subheader("🎯 智慧回購清單與電銷追蹤戰情室")
@@ -864,7 +958,8 @@ with tab7:
 
         cutoff_date = pd.Timestamp(date.today() - timedelta(days=180))
         
-        dormant_df = agg_df[agg_df['最後購買日'] < cutoff_date].sort_values(by='歷史消費金額', ascending=False).head(50)
+        valid_dormant = agg_df.dropna(subset=['最後購買日'])
+        dormant_df = valid_dormant[valid_dormant['最後購買日'] < cutoff_date].sort_values(by='歷史消費金額', ascending=False).head(50)
         dormant_df['最後購買日'] = dormant_df['最後購買日'].dt.strftime('%Y-%m-%d')
 
         if dormant_df.empty:
@@ -961,7 +1056,7 @@ with tab6:
 # TAB 5: 批次匯入舊名單
 # ==========================================
 with tab5:
-    st.subheader("📥 匯入 Excel 名單（兩段式秒級終極匯入）")
+    st.subheader("📥 匯入 Excel 名單（兩段式秒級終極匯入 - 具備防覆蓋保護）")
     uploaded_file = st.file_uploader("上傳 Excel 檔案（.xlsx）", type=["xlsx", "xls"])
 
     if uploaded_file is not None:
@@ -969,11 +1064,11 @@ with tab5:
             excel_file = pd.ExcelFile(uploaded_file)
             st.write(f"📂 偵測到工作表：`{', '.join(excel_file.sheet_names)}`")
             
-            if st.button("🚀 確認並開始 3 秒極速匯入"):
+            if st.button("🚀 確認並開始智慧增量匯入"):
                 bar = st.progress(10)
                 status = st.empty()
 
-                status.info("⚡ [1/3] 正在載入比對快取並解析 Excel...")
+                status.info("⚡ [1/3] 正在載入現有資料庫快取與解析 Excel...")
                 existing_cust_df = read_query("SELECT customer_id, customer_code, phone FROM customers")
                 code_to_id = {}
                 phone_to_id = {}
@@ -1055,7 +1150,7 @@ with tab5:
                                 order_tasks.append((cust_code, True, o_chan, o_date, r_code))
 
                 bar.progress(50)
-                status.info(f"⚡ [2/3] 正在極速寫入 {len(cust_inserts)} 位新客戶...")
+                status.info(f"⚡ [2/3] 正在安全寫入 {len(cust_inserts)} 位全新客戶...")
 
                 engine = get_db_engine()
                 if cust_inserts:
@@ -1063,7 +1158,7 @@ with tab5:
                     new_cust_df.to_sql("customers", engine, if_exists="append", index=False, method="multi", chunksize=500)
 
                 bar.progress(80)
-                status.info(f"⚡ [3/3] 正在整批連結並寫入 {len(order_tasks)} 筆訂單軌跡...")
+                status.info(f"⚡ [3/3] 正在同步檢索並寫入新增的訂單軌跡...")
 
                 fresh_cust_df = read_query("SELECT customer_id, customer_code, phone FROM customers")
                 code_map = {}
@@ -1083,7 +1178,7 @@ with tab5:
                     elif str(target_ref) in code_map:
                         final_cid = code_map[str(target_ref)]
                     elif str(target_ref) in phone_map:
-                        final_cid = phone_map[str(target_ref)]
+                        final_cid = phone_map[str(phone_map)]
 
                     if final_cid:
                         final_orders.append({
@@ -1102,8 +1197,11 @@ with tab5:
                     orders_df = orders_df.drop_duplicates(subset=["customer_id", "raw_date_code"])
                     orders_df.to_sql("orders", engine, if_exists="append", index=False, method="multi", chunksize=1000)
 
+                # 清除快取，確保重新載入最新資料
+                st.cache_data.clear()
+
                 bar.progress(100)
                 status.empty()
-                st.success(f"🎉 極速匯入大成功！成功建檔 **{len(cust_inserts)}** 位會員，並完整寫入 **{len(final_orders)}** 筆購買軌跡！")
+                st.success(f"🎉 智慧增量匯入大成功！成功新增 **{len(cust_inserts)}** 位新會員，且**完全保護**了您在 CRM 內編輯過的所有舊客資料與電訪紀錄！")
         except Exception as e:
             st.error(f"匯入錯誤：{e}")

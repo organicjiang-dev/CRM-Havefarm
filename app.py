@@ -814,7 +814,7 @@ with tab4:
         st.info("尚無客戶資料。")
 
 # ==========================================
-# TAB 7: 🎯 智慧回購清單與電銷戰情室 (已改由 Python 安全計算 180 天)
+# TAB 7: 🎯 智慧回購清單與電銷戰情室 (已由 Python 安全計算 180 天)
 # ==========================================
 with tab7:
     st.subheader("🎯 智慧回購清單與電銷追蹤戰情室")
@@ -840,7 +840,6 @@ with tab7:
 
     st.markdown("#### 💤 潛在沉睡客喚醒名單 (超過 180 天未回購)")
     
-    # 🛡️ 關鍵修復：改由 Python (Pandas) 在記憶體中安全過濾日期，徹底避開資料庫格式髒資料陷阱
     raw_orders_for_dormant = read_query("""
         SELECT 
             c.customer_id,
@@ -856,22 +855,16 @@ with tab7:
     if raw_orders_for_dormant.empty:
         st.info("目前尚無訂單資料。")
     else:
-        # 將 order_date 轉為標準日期格式，無法解析的自動轉為 NaT（略過不計）
         raw_orders_for_dormant['parsed_date'] = pd.to_datetime(raw_orders_for_dormant['order_date'], errors='coerce')
         
-        # 找出每位客戶的最後購買日與總消費金額
         agg_df = raw_orders_for_dormant.groupby(['customer_id', '客戶代號', '姓名', '主要手機']).agg(
             最後購買日=('parsed_date', 'max'),
             歷史消費金額=('amount', 'sum')
         ).reset_index()
 
-        # 計算距離今天的天數
         cutoff_date = pd.Timestamp(date.today() - timedelta(days=180))
         
-        # 篩選出最後購買日早於 180 天前的客戶
         dormant_df = agg_df[agg_df['最後購買日'] < cutoff_date].sort_values(by='歷史消費金額', ascending=False).head(50)
-        
-        # 將最後購買日轉回好看的字串格式
         dormant_df['最後購買日'] = dormant_df['最後購買日'].dt.strftime('%Y-%m-%d')
 
         if dormant_df.empty:
@@ -1082,7 +1075,7 @@ with tab5:
                     if pd.notna(r['phone']) and str(r['phone']).strip():
                         phone_map[str(r['phone']).strip()] = cid
 
-.               final_orders = []
+                final_orders = []
                 for target_ref, is_new, o_chan, o_date, r_code in order_tasks:
                     final_cid = None
                     if isinstance(target_ref, int):

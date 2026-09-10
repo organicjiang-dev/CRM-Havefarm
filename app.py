@@ -41,7 +41,7 @@ h2, h3 { font-size: 34px !important; font-weight: 800 !important; margin-top: 20
 h4, h5 { font-size: 28px !important; font-weight: 700 !important; margin-top: 16px !important; color: #2b6cb0 !important; }
 label, label p, [data-testid="stWidgetLabel"] p { font-size: 26px !important; font-weight: 900 !important; color: #1a1a1a !important; margin-bottom: 12px !important; }
 input[type="text"], input[type="password"], input[type="number"], select, div[data-baseweb="select"] > div { font-size: 26px !important; min-height: 70px !important; border-radius: 12px !important; border: 2px solid #718096 !important; padding: 12px 20px !important; background-color: #ffffff !important; font-weight: 700 !important; color: #1a202c !important; }
-div[data-baseweb="input"] { min-height: 70px !important; }
+div[data-testid="stInputValue"] { min-height: 70px !important; }
 div[data-baseweb="select"] span { font-size: 26px !important; font-weight: 700 !important; }
 textarea { font-size: 26px !important; min-height: 140px !important; line-height: 1.6 !important; border: 2px solid #718096 !important; }
 .stButton > button { min-height: 72px !important; font-size: 28px !important; font-weight: 900 !important; border-radius: 12px !important; padding: 0 40px !important; margin-top: 14px !important; border: 2px solid #3182ce !important; }
@@ -349,7 +349,6 @@ def get_source_idx(src):
 # --- 4. 主介面排版 ---
 st.title("🌾 有其田 客服管理系統")
 
-# 新增「🎯 智慧回購清單」分頁
 tab1, tab2, tab3, tab4, tab7, tab6, tab5 = st.tabs([
     "🔍 舊客速查與編輯", 
     "🆕 建立新名單", 
@@ -361,7 +360,7 @@ tab1, tab2, tab3, tab4, tab7, tab6, tab5 = st.tabs([
 ])
 
 # ==========================================
-# TAB 1: 舊客戶速查與編輯 (內嵌電訪紀錄面板)
+# TAB 1: 舊客戶速查與編輯
 # ==========================================
 with tab1:
     st.markdown("### 🔍 舊客戶電話 / 代號 / 姓名速查")
@@ -417,7 +416,6 @@ with tab1:
                 m2.metric("累積消費金額", f"NT$ {total_spent:,}")
                 m3.metric("初次建檔時間", str(ccreated).split()[0] if ccreated else "-")
 
-                # --- 📞 電訪紀錄與下次提醒摺疊面板 ---
                 with st.expander("📞 電訪追蹤紀錄與下次提醒（點擊展開/收合）", expanded=False):
                     with st.form(key=f"tele_form_tab1_{cid}", clear_on_submit=True):
                         tc_col1, tc_col2 = st.columns(2)
@@ -442,7 +440,6 @@ with tab1:
                             st.success("✅ 電訪紀錄已成功儲存！")
                             st.rerun()
 
-                    # 顯示該客戶過往電訪紀錄
                     past_logs = read_query("SELECT agent_name, call_status, call_notes, next_followup_date, created_at FROM telemarketing_logs WHERE customer_id = :cid ORDER BY created_at DESC", {"cid": cid})
                     if not past_logs.empty:
                         st.write("**歷史電訪紀錄：**")
@@ -652,7 +649,6 @@ with tab3:
             m1.metric("累積購買次數", f"{len(h_df)} 次")
             m2.metric("累積消費金額", f"NT$ {h_df['amount'].sum():,}")
 
-            # --- 📞 電訪紀錄與下次提醒摺疊面板 (Tab 3 同步支援) ---
             with st.expander("📞 電訪追蹤紀錄與下次提醒（點擊展開/收合）", expanded=False):
                 with st.form(key=f"tele_form_tab3_{cid}", clear_on_submit=True):
                     tc_col1, tc_col2 = st.columns(2)
@@ -682,7 +678,7 @@ with tab3:
                     st.write("**歷史電訪紀錄：**")
                     for _, plog in past_logs.iterrows():
                         nd_str = f" | 🔔 下次提醒: {plog['next_followup_date']}" if pd.notna(plog['next_followup_date']) else ""
-                        st.caption(f"[{str(plog['created_at'])[:16]}組立] 專員: {plog['agent_name']} | 狀態: **{plog['call_status']}**{nd_str} — 備註: {plog['call_notes']}")
+                        st.caption(f"[{str(plog['created_at'])[:16]}] 專員: {plog['agent_name']} | 狀態: **{plog['call_status']}**{nd_str} — 備註: {plog['call_notes']}")
 
             with st.expander(f"✏️ 點擊展開／收合【{cname}】的基本資料與收件人設定", expanded=True):
                 with st.form(key=f"edit_cust_form_tab3_{cid}"):
@@ -818,15 +814,14 @@ with tab4:
         st.info("尚無客戶資料。")
 
 # ==========================================
-# TAB 7: 🎯 智慧回購清單與電銷戰情室 (新功能)
+# TAB 7: 🎯 智慧回購清單與電銷戰情室 (已改為 180 天未回購)
 # ==========================================
 with tab7:
     st.subheader("🎯 智慧回購清單與電銷追蹤戰情室")
-    st.markdown("系統自動幫您篩選出「今日需要再次電訪」以及「超過 90 天未回購的沉睡客」名單，點擊即可直接展開聯繫！")
+    st.markdown("系統自動幫您篩選出「今日需要再次電訪」以及「超過 180 天未回購的沉睡客」名單，點擊即可直接展開聯繫！")
 
     today_str = date.today().strftime("%Y-%m-%d")
 
-    # 1. 今日待追蹤名單
     st.markdown("#### 🔔 今日預定再訪清單 (依電訪提醒日)")
     followup_df = read_query("""
         SELECT DISTINCT c.customer_id, c.customer_code, c.name, c.phone, t.next_followup_date, t.call_status, t.call_notes
@@ -843,8 +838,8 @@ with tab7:
 
     st.markdown("---")
 
-    # 2. 沉睡客自動篩選 (超過 90 天未回購)
-    st.markdown("#### 💤 潛在沉睡客喚醒名單 (超過 90 天未回購)")
+    st.markdown("#### 💤 潛在沉睡客喚醒名單 (超過 180 天未回購)")
+    # 修正：將 90 天改為 180 天，完美符合快消品 4-6 個月的消耗週期
     dormant_df = read_query("""
         SELECT 
             c.customer_id,
@@ -852,18 +847,17 @@ with tab7:
             c.name AS "姓名",
             c.phone AS "主要手機",
             MAX(o.order_date) AS "最後購買日",
-            CURRENT_DATE - MAX(o.order_date)::date AS "未回購天數",
             COALESCE(SUM(o.amount), 0) AS "歷史消費金額"
         FROM customers c
         JOIN orders o ON c.customer_id = c.customer_id
         GROUP BY c.customer_id, c.customer_code, c.name, c.phone
-        HAVING MAX(o.order_date) < CURRENT_DATE - INTERVAL '90 days'
+        HAVING MAX(o.order_date) < CURRENT_DATE - INTERVAL '180 days'
         ORDER BY "歷史消費金額" DESC
         LIMIT 50
     """)
 
     if dormant_df.empty:
-        st.info("目前沒有超過 90 天未回購的沉睡客。")
+        st.info("目前沒有超過 180 天未回購的沉睡客。")
     else:
         st.dataframe(dormant_df.drop(columns=["customer_id"]), use_container_width=True)
         
@@ -929,7 +923,6 @@ with tab6:
                     st.download_button("📥 下載訂單明細 (XLSX)", out.getvalue(), f"有其田_訂單報表_{start_date}至{end_date}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
             else:
-                # 電話行銷績效報表
                 tele_sql = """
                     SELECT 
                         agent_name AS "客服專員",

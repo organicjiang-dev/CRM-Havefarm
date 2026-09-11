@@ -382,7 +382,8 @@ tab1, tab2, tab3, tab4, tab7, tab6, tab5 = st.tabs([
 # TAB 1: 舊客戶速查與編輯
 # ==========================================
 with tab1:
-    st.markdown("### 🔍 舊客戶電話 / 代號 / 姓名極速速查")
+    # 🌟 修正頂部標題文字
+    st.markdown("### 🔍 舊客戶電話 / 代號 / 姓名速查")
     
     col_search, _ = st.columns([3, 1])
     with col_search:
@@ -551,10 +552,9 @@ with tab1:
                                         st.success("✅ 已刪除該筆電訪紀錄！")
                                         st.rerun()
 
-                st.markdown("#### 📜 歷史購買紀錄 (點擊可展開編輯與刪除)")
-                render_editable_orders(history_df, "tab1")
-
                 st.markdown("---")
+                
+                # 🌟 把「為客戶新增訂單」區塊移到歷史訂單的上方
                 st.subheader(f"📦 為【{cname}】新增訂單")
                 with st.form(key=f"add_order_for_tab1_{cid}", clear_on_submit=True):
                     oc1, oc2, oc3 = st.columns(3)
@@ -584,6 +584,13 @@ with tab1:
                             })
                             st.success(f"🎉 已成功為【{cname}】新增訂單！")
                             st.rerun()
+
+                st.markdown("---")
+                
+                # 🌟 歷史購買紀錄加入「分層折疊」防洗版機制
+                st.markdown("#### 📜 歷史購買紀錄 (點擊展開檢視/編輯/刪除)")
+                with st.expander(f"📁 點擊展開【{cname}】的 {total_orders} 筆歷史訂單明細", expanded=False):
+                    render_editable_orders(history_df, "tab1")
 
 # ==========================================
 # TAB 2: 建立全新會員名單
@@ -748,7 +755,7 @@ with tab3:
                         st.success("✅ 客戶資料已同步更新！")
                         st.rerun()
 
-            # 🗑️ 【同步補上】刪除重複會員專區（位於 Tab 3 基本資料下方）
+            # 🗑️ 刪除重複會員專區（位於 Tab 3 基本資料下方）
             with st.expander("⚠️ 危險操作區：刪除此會員帳號", expanded=False):
                 st.warning("若此會員為重複建檔的幽靈帳號，確認後可點擊下方按鈕將其永久刪除（包含歷史訂單）。")
                 del_cust_chk_t3 = st.checkbox(f"我確定要刪除客戶 【{cname}】 ({ccode})", key=f"chk_del_cust_t3_{cid}")
@@ -827,8 +834,44 @@ with tab3:
                                     st.rerun()
 
             st.markdown("---")
-            st.write("**⏳ 歷史訂單與購買軌跡（支援修改或刪除）：**")
-            render_editable_orders(h_df, "tab3")
+            
+            # 🌟 把「為客戶新增訂單」區塊移到歷史訂單的上方 (Tab 3 同步)
+            st.subheader(f"📦 為【{cname}】新增訂單")
+            with st.form(key=f"add_order_for_tab3_{cid}", clear_on_submit=True):
+                oc1, oc2, oc3 = st.columns(3)
+                with oc1:
+                    new_order_chan = st.selectbox("購買管道 *", ["電話訂購 (B)", "官網 (A)", "LINE訂購", "其他"])
+                    new_order_date = st.date_input("訂購日期 *", value=datetime.today())
+                with oc2:
+                    new_order_prod = st.text_input("訂購商品名稱與規格 *", placeholder="例：有機三色藜麥片 3罐組")
+                    new_order_amt = st.number_input("訂單金額 (NT$)", min_value=0, step=50, value=0)
+                with oc3:
+                    new_order_status = st.selectbox("訂單狀態", ["已接單/待出貨", "已出貨", "已完成", "售後追蹤中", "取消/退貨"])
+                    new_order_notes = st.text_input("本次訂單備註", placeholder="例：送禮給第二收件人")
+
+                add_order_btn = st.form_submit_button("➕ 建立這筆新訂單")
+                if add_order_btn:
+                    if not new_order_prod:
+                        st.error("請填寫訂購商品！")
+                    else:
+                        chan_clean = "電話訂購" if "電話" in new_order_chan else ("官網" if "官網" in new_order_chan else new_order_chan)
+                        execute_query("""
+                            INSERT INTO orders (customer_id, channel, product, amount, order_date, raw_date_code, status, order_notes)
+                            VALUES (:cid, :chan, :prod, :amt, :odate, '', :status, :notes)
+                        """, {
+                            "cid": cid, "chan": chan_clean, "prod": new_order_prod,
+                            "amt": new_order_amt, "odate": str(new_order_date),
+                            "status": new_order_status, "notes": new_order_notes
+                        })
+                        st.success(f"🎉 已成功為【{cname}】新增訂單！")
+                        st.rerun()
+
+            st.markdown("---")
+            
+            # 🌟 歷史購買紀錄加入「分層折疊」防洗版機制 (Tab 3 同步)
+            st.markdown("#### 📜 歷史購買紀錄 (點擊展開檢視/編輯/刪除)")
+            with st.expander(f"📁 點擊展開【{cname}】的 {len(h_df)} 筆歷史訂單明細", expanded=False):
+                render_editable_orders(h_df, "tab3")
     else:
         st.info("⚠️ 查無符合條件的客戶。")
 

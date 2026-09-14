@@ -29,6 +29,13 @@ SOURCES_LIST = [
 st.markdown("""
 <style>
 html, body, [class*="css"] { font-size: 24px !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif !important; }
+div[data-testid="stTabs"] { overflow: visible !important; }
+div[data-testid="stTabs"] > div { overflow: visible !important; }
+div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { gap: 50px !important; padding-top: 35px !important; padding-bottom: 10px !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"] { transform: scale(1.8) !important; transform-origin: left bottom !important; background-color: #f7fafc !important; border-radius: 6px 6px 0 0 !important; border: 1px solid #cbd5e0 !important; border-bottom: none !important; margin-right: 25px !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"] * { font-weight: 900 !important; color: #4a5568 !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] { border-top: 4px solid #e53e3e !important; background-color: #fff5f5 !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] * { color: #e53e3e !important; }
 h1 { font-size: 45px !important; font-weight: 900 !important; margin-bottom: 24px !important; }
 h2, h3 { font-size: 34px !important; font-weight: 800 !important; margin-top: 20px !important; margin-bottom: 16px !important; }
 h4, h5 { font-size: 28px !important; font-weight: 700 !important; margin-top: 16px !important; color: #2b6cb0 !important; }
@@ -142,7 +149,8 @@ if not check_login():
 # ==================== 以下為原本的系統主要功能 ====================
 
 with st.sidebar:
-    st.markdown(f"### 👤 目前使用者：`:blue[{st.session_state.username}]`")
+    # 🌟 修復側邊欄的 :blue 顯示錯誤，改為乾淨粗體
+    st.markdown(f"### 👤 目前使用者：**{st.session_state.username}**")
     st.caption("連線狀態：🟢 Supabase 雲端資料庫已加密連線")
     if st.button("🚪 登出系統"):
         st.session_state.logged_in = False
@@ -358,16 +366,10 @@ def get_source_idx(src):
         return SOURCES_LIST.index(src)
     return 0
 
-# --- 4. 主介面排版 ---
+# --- 4. 主介面排版 (🌟 恢復原生乾淨分頁，移除紅色圈圈) ---
 st.title("🌾 有其田 客服管理系統")
 
-if "active_tab_idx" not in st.session_state:
-    st.session_state.active_tab_idx = 0
-
-if "jump_search_query" not in st.session_state:
-    st.session_state.jump_search_query = ""
-
-tab_labels = [
+tab1, tab2, tab3, tab4, tab7, tab6, tab5 = st.tabs([
     "🔍 舊客速查與編輯", 
     "🆕 建立新名單", 
     "👤 歷史訂購紀錄", 
@@ -375,29 +377,18 @@ tab_labels = [
     "🎯 智慧回購清單",
     "📅 報表與匯出",
     "📥 匯入舊名單與官網訂單報表"
-]
-
-selected_tab = st.radio("導覽分頁", tab_labels, index=st.session_state.active_tab_idx, horizontal=True, label_visibility="collapsed")
-current_tab_index = tab_labels.index(selected_tab)
-st.session_state.active_tab_idx = current_tab_index
-
-st.markdown("---")
+])
 
 # ==========================================
-# TAB 0: 舊客戶速查與編輯
+# TAB 1: 舊客戶速查與編輯
 # ==========================================
-if current_tab_index == 0:
+with tab1:
     st.markdown("### 🔍 舊客戶電話 / 代號 / 姓名速查")
     
-    default_search = st.session_state.jump_search_query
-    if default_search:
-        st.session_state.jump_search_query = ""
-
     col_search, _ = st.columns([3, 1])
     with col_search:
         search_query = st.text_input(
             "請輸入查詢關鍵字（姓名、手機或代號）", 
-            value=default_search,
             placeholder="例：蔡汶容、0912345678、或輸入 8761 查詢 CRM008761",
             key="accurate_cust_search"
         ).strip()
@@ -451,7 +442,6 @@ if current_tab_index == 0:
                         st.markdown("##### 👤 【本人】基本資料與常用收件地址")
                         ec1, ec2, ec3 = st.columns(3)
                         with ec1:
-                            # 🌟 如果沒有代號，自動提示下一個可用的 CRM 編號
                             next_avail = get_next_crm_code()
                             code_label = "客戶代號" if ccode else f"客戶代號 (系統建議新號：{next_avail})"
                             edit_code = st.text_input(code_label, value=ccode)
@@ -603,9 +593,9 @@ if current_tab_index == 0:
                     render_editable_orders(history_df, "tab1")
 
 # ==========================================
-# TAB 1: 建立全新會員名單
+# TAB 2: 建立全新會員名單
 # ==========================================
-elif current_tab_index == 1:
+with tab2:
     st.subheader("🆕 建立全新會員名單（系統自動編排 CRM 代號）")
     auto_code = get_next_crm_code()
     st.info(f"系統已自動指派下一位會員代號：`:blue[**{auto_code}**]`")
@@ -684,9 +674,9 @@ elif current_tab_index == 1:
                 st.rerun()
 
 # ==========================================
-# TAB 2: 歷史訂購紀錄
+# TAB 3: 歷史訂購紀錄
 # ==========================================
-elif current_tab_index == 2:
+with tab3:
     col_t3_title, col_t3_search = st.columns([1, 1])
     with col_t3_title:
         st.subheader("👤 客戶檔案 與 歷史訂購紀錄")
@@ -697,7 +687,7 @@ elif current_tab_index == 2:
     if t3_search:
         matched_t3 = search_customers_fast(t3_search)
         if matched_t3:
-            c_opts = {f"[{c[1]}] {c[2]} ({c[5]})": c[0] for c in matched_t3}
+            c_opts = {f"[{c[1] if str(c[1]).strip() else '待查'}] {c[2]} ({c[5]})": c[0] for c in matched_t3}
         else:
             c_opts = {}
     else:
@@ -884,14 +874,13 @@ elif current_tab_index == 2:
         st.info("⚠️ 查無符合條件的客戶。")
 
 # ==========================================
-# TAB 3: 客戶名冊總表
+# TAB 4: 客戶名冊總表
 # ==========================================
-elif current_tab_index == 3:
+with tab4:
     st.subheader("📊 客戶名冊總表")
     
     col_filter, _ = st.columns([3, 1])
     with col_filter:
-        # 🌟 一鍵快速篩選「無代號孤兒」的貼心功能
         show_pending_only = st.checkbox("🔍 只顯示「無代號 / 待確認」的名單")
         tab4_search = st.text_input("🔍 在總表中搜尋 (請輸入姓名、手機號碼或客戶代號)：", key="tab4_search").strip()
 
@@ -918,11 +907,9 @@ elif current_tab_index == 3:
     if not df_all.empty:
         df_filtered = df_all
 
-        # 套用無代號篩選
         if show_pending_only:
             df_filtered = df_filtered[(df_filtered["客戶代號"].isna()) | (df_filtered["客戶代號"].str.strip() == "")]
 
-        # 套用文字搜尋篩選
         if tab4_search:
             search_upper = tab4_search.upper()
             df_filtered = df_filtered[
@@ -952,9 +939,9 @@ elif current_tab_index == 3:
         st.info("尚無客戶資料。")
 
 # ==========================================
-# TAB 4: 智慧回購清單與電銷戰情室
+# TAB 7: 🎯 智慧回購清單與電銷戰情室
 # ==========================================
-elif current_tab_index == 4:
+with tab7:
     st.subheader("🎯 智慧回購清單與電銷追蹤戰情室")
     st.markdown("系統自動幫您篩選出「今日需要再次電訪」以及「超過 180 天未回購的沉睡客」名單，點擊即可直接展開聯繫！")
 
@@ -1024,9 +1011,9 @@ elif current_tab_index == 4:
             )
 
 # ==========================================
-# TAB 5: 期間訂單報表與電銷績效匯出
+# TAB 6: 期間訂單報表與電銷績效匯出
 # ==========================================
-elif current_tab_index == 5:
+with tab6:
     st.subheader("📅 期間訂單紀錄與電話行銷成效報表")
     
     report_type = st.radio("選擇要產生的報表類型：", ["📦 期間訂單明細報表", "📞 電話行銷漏斗與客服績效報表"], horizontal=True)
@@ -1097,11 +1084,10 @@ elif current_tab_index == 5:
                     st.download_button("📥 下載電銷績效報表 (XLSX)", out.getvalue(), f"有其田_電銷績效報表_{start_date}至{end_date}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # ==========================================
-# TAB 6: 批次匯入舊名單與官網訂單報表 (🚀 待查隔離版)
+# TAB 5: 批次匯入舊名單與官網訂單報表
 # ==========================================
-elif current_tab_index == 6:
+with tab5:
     st.subheader("📥 智慧匯入中心（自動隔離待查名單與去重）")
-    # 🌟 你可以隨意修改下面引號內的文字！
     st.info("💡 若比對不到會員手機，系統不會自動配發 CRM 新代號，而是歸入「待確認名單」供您後續比對，絕不產生幽靈編號！")
     
     uploaded_file = st.file_uploader("上傳 Excel 檔案（.xlsx）", type=["xlsx", "xls"], key="excel_uploader_tab5")
@@ -1198,7 +1184,6 @@ elif current_tab_index == 6:
                                     })
                                     existing_order_set.add((matched_cid, r_code))
                             else:
-                                # 🌟 取消自動編號，將這筆未註冊客留空 (空字串)，進入待查區
                                 cust_code = ""
 
                                 cust_inserts.append({
@@ -1206,7 +1191,7 @@ elif current_tab_index == 6:
                                     "phone": p1, "phone_backup": "", "tel": "", "address": "官網匯入地址", "created_at": now_str,
                                     "customer_source": "官網"
                                 })
-                                phone_to_id[p1] = p1 # 暫時用手機當辨識KEY
+                                phone_to_id[p1] = p1
 
                                 order_tasks.append({
                                     "target": p1,
@@ -1265,7 +1250,6 @@ elif current_tab_index == 6:
                                         })
                                         existing_order_set.add((matched_cid, r_code))
                             else:
-                                # 🌟 舊版名單：如果是空的就不自動生號碼
                                 if not cust_code:
                                     cust_code = ""
 

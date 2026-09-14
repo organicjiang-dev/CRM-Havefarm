@@ -22,6 +22,7 @@ SOURCES_LIST = [
     "LINE 官方帳號", 
     "廣播", 
     "簡訊", 
+    "FB 貼文", 
     "其他"
 ]
 
@@ -149,7 +150,6 @@ if not check_login():
 # ==================== 以下為原本的系統主要功能 ====================
 
 with st.sidebar:
-    # 🌟 修復側邊欄的 :blue 顯示錯誤，改為乾淨粗體
     st.markdown(f"### 👤 目前使用者：**{st.session_state.username}**")
     st.caption("連線狀態：🟢 Supabase 雲端資料庫已加密連線")
     if st.button("🚪 登出系統"):
@@ -337,7 +337,7 @@ def render_editable_orders(history_df, prefix_key):
                         o_prod = st.text_input("訂購商品", value=str(r['product']))
                         o_amt = st.number_input("訂單金額", min_value=0, step=50, value=int(r['amount']))
                     with ec_o3:
-                        o_status = st.selectbox("狀態", ["歷史完成", "已完成", "已出貨", "已接單/待出貨", "售後追蹤中", "取消/退貨"], index=0 if r['status']=="歷史完成" else 1)
+                        o_status = st.selectbox("狀態", ["歷史完成", "已完成", "已出貨", "已接單/待出貨", "售後追蹤中", "取消/退 রোহ"], index=0 if r['status']=="歷史完成" else 1)
                         o_notes = st.text_input("訂單備註", value=str(r['order_notes']) if pd.notna(r['order_notes']) else "")
 
                     save_order_btn = st.form_submit_button("💾 儲存此筆訂單修改")
@@ -366,10 +366,16 @@ def get_source_idx(src):
         return SOURCES_LIST.index(src)
     return 0
 
-# --- 4. 主介面排版 (🌟 恢復原生乾淨分頁，移除紅色圈圈) ---
+# --- 4. 主介面排版 (回歸最乾淨的原生 Tab 分頁) ---
 st.title("🌾 有其田 客服管理系統")
 
-tab1, tab2, tab3, tab4, tab7, tab6, tab5 = st.tabs([
+if "active_tab_idx" not in st.session_state:
+    st.session_state.active_tab_idx = 0
+
+if "jump_search_query" not in st.session_state:
+    st.session_state.jump_search_query = ""
+
+tab_labels = [
     "🔍 舊客速查與編輯", 
     "🆕 建立新名單", 
     "👤 歷史訂購紀錄", 
@@ -377,18 +383,29 @@ tab1, tab2, tab3, tab4, tab7, tab6, tab5 = st.tabs([
     "🎯 智慧回購清單",
     "📅 報表與匯出",
     "📥 匯入舊名單與官網訂單報表"
-])
+]
+
+selected_tab = st.radio("導覽分頁", tab_labels, index=st.session_state.active_tab_idx, horizontal=True, label_visibility="collapsed")
+current_tab_index = tab_labels.index(selected_tab)
+st.session_state.active_tab_idx = current_tab_index
+
+st.markdown("---")
 
 # ==========================================
-# TAB 1: 舊客戶速查與編輯
+# TAB 0: 舊客戶速查與編輯
 # ==========================================
-with tab1:
-    st.markdown("### 🔍 舊客戶電話 / 代號 / 姓名速查")
+if current_tab_index == 0:
+    st.markdown("### 舊客戶電話 / 代號 / 姓名速查")
     
+    default_search = st.session_state.jump_search_query
+    if default_search:
+        st.session_state.jump_search_query = ""
+
     col_search, _ = st.columns([3, 1])
     with col_search:
         search_query = st.text_input(
             "請輸入查詢關鍵字（姓名、手機或代號）", 
+            value=default_search,
             placeholder="例：蔡汶容、0912345678、或輸入 8761 查詢 CRM008761",
             key="accurate_cust_search"
         ).strip()
@@ -593,9 +610,9 @@ with tab1:
                     render_editable_orders(history_df, "tab1")
 
 # ==========================================
-# TAB 2: 建立全新會員名單
+# TAB 1: 建立全新會員名單
 # ==========================================
-with tab2:
+elif current_tab_index == 1:
     st.subheader("🆕 建立全新會員名單（系統自動編排 CRM 代號）")
     auto_code = get_next_crm_code()
     st.info(f"系統已自動指派下一位會員代號：`:blue[**{auto_code}**]`")
@@ -674,9 +691,9 @@ with tab2:
                 st.rerun()
 
 # ==========================================
-# TAB 3: 歷史訂購紀錄
+# TAB 2: 歷史訂購紀錄
 # ==========================================
-with tab3:
+elif current_tab_index == 2:
     col_t3_title, col_t3_search = st.columns([1, 1])
     with col_t3_title:
         st.subheader("👤 客戶檔案 與 歷史訂購紀錄")
@@ -874,9 +891,9 @@ with tab3:
         st.info("⚠️ 查無符合條件的客戶。")
 
 # ==========================================
-# TAB 4: 客戶名冊總表
+# TAB 3: 客戶名冊總表
 # ==========================================
-with tab4:
+elif current_tab_index == 3:
     st.subheader("📊 客戶名冊總表")
     
     col_filter, _ = st.columns([3, 1])
@@ -886,6 +903,7 @@ with tab4:
 
     df_all = read_query("""
         SELECT 
+            c.customer_id,
             c.customer_code AS "客戶代號",
             c.name AS "姓名",
             c.customer_source AS "顧客來源",
@@ -897,7 +915,8 @@ with tab4:
             (SELECT channel FROM orders WHERE customer_id = c.customer_id ORDER BY order_date DESC LIMIT 1) AS "最後購買管道",
             COUNT(o.order_id) AS "總購買次數",
             COALESCE(SUM(o.amount), 0) AS "歷史消費金額",
-            MAX(o.order_date) AS "最後購買日"
+            MAX(o.order_date) AS "最後購買日",
+            (SELECT STRING_AGG(order_date::text || ' (' || channel || '): ' || product || ' $' || amount::text, ' | ' ORDER BY order_date DESC) FROM orders WHERE customer_id = c.customer_id) AS "歷史訂購明細"
         FROM customers c
         LEFT JOIN orders o ON c.customer_id = o.customer_id
         GROUP BY c.customer_id
@@ -920,13 +939,17 @@ with tab4:
 
         st.markdown("💡 **小提示：此總表為純檢視模式，載入最為快速。若需刪除重複會員或編輯補上代號，請至「🔍 舊客速查與編輯」頁面操作。**")
 
-        st.dataframe(df_filtered, use_container_width=True, hide_index=True)
+        # 🚀 前台顯示：隱藏 ID 與 歷史訂購明細
+        display_df = df_filtered.drop(columns=["customer_id", "歷史訂購明細"], errors='ignore')
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
 
         st.markdown("---")
         
+        # 🚀 報表匯出：隱藏 ID，保留「歷史訂購明細」
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df_filtered.to_excel(writer, index=False, sheet_name='客戶名冊')
+            export_df = df_filtered.drop(columns=["customer_id"], errors='ignore')
+            export_df.to_excel(writer, index=False, sheet_name='客戶名冊')
         excel_data = output.getvalue()
         
         st.download_button(
@@ -939,9 +962,9 @@ with tab4:
         st.info("尚無客戶資料。")
 
 # ==========================================
-# TAB 7: 🎯 智慧回購清單與電銷戰情室
+# TAB 4: 智慧回購清單與電銷戰情室
 # ==========================================
-with tab7:
+elif current_tab_index == 4:
     st.subheader("🎯 智慧回購清單與電銷追蹤戰情室")
     st.markdown("系統自動幫您篩選出「今日需要再次電訪」以及「超過 180 天未回購的沉睡客」名單，點擊即可直接展開聯繫！")
 
@@ -1011,9 +1034,9 @@ with tab7:
             )
 
 # ==========================================
-# TAB 6: 期間訂單報表與電銷績效匯出
+# TAB 5: 期間訂單報表與電銷績效匯出
 # ==========================================
-with tab6:
+elif current_tab_index == 5:
     st.subheader("📅 期間訂單紀錄與電話行銷成效報表")
     
     report_type = st.radio("選擇要產生的報表類型：", ["📦 期間訂單明細報表", "📞 電話行銷漏斗與客服績效報表"], horizontal=True)
@@ -1084,9 +1107,9 @@ with tab6:
                     st.download_button("📥 下載電銷績效報表 (XLSX)", out.getvalue(), f"有其田_電銷績效報表_{start_date}至{end_date}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # ==========================================
-# TAB 5: 批次匯入舊名單與官網訂單報表
+# TAB 6: 批次匯入舊名單與官網訂單報表
 # ==========================================
-with tab5:
+elif current_tab_index == 6:
     st.subheader("📥 智慧匯入中心（自動隔離待查名單與去重）")
     st.info("💡 若比對不到會員手機，系統不會自動配發 CRM 新代號，而是歸入「待確認名單」供您後續比對，絕不產生幽靈編號！")
     

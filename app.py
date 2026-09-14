@@ -29,13 +29,6 @@ SOURCES_LIST = [
 st.markdown("""
 <style>
 html, body, [class*="css"] { font-size: 24px !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif !important; }
-div[data-testid="stTabs"] { overflow: visible !important; }
-div[data-testid="stTabs"] > div { overflow: visible !important; }
-div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { gap: 50px !important; padding-top: 35px !important; padding-bottom: 10px !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"] { transform: scale(1.8) !important; transform-origin: left bottom !important; background-color: #f7fafc !important; border-radius: 6px 6px 0 0 !important; border: 1px solid #cbd5e0 !important; border-bottom: none !important; margin-right: 25px !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"] * { font-weight: 900 !important; color: #4a5568 !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] { border-top: 4px solid #e53e3e !important; background-color: #fff5f5 !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] * { color: #e53e3e !important; }
 h1 { font-size: 45px !important; font-weight: 900 !important; margin-bottom: 24px !important; }
 h2, h3 { font-size: 34px !important; font-weight: 800 !important; margin-top: 20px !important; margin-bottom: 16px !important; }
 h4, h5 { font-size: 28px !important; font-weight: 700 !important; margin-top: 16px !important; color: #2b6cb0 !important; }
@@ -365,10 +358,16 @@ def get_source_idx(src):
         return SOURCES_LIST.index(src)
     return 0
 
-# --- 4. 主介面排版 (回歸最乾淨的原生 Tab 分頁) ---
+# --- 4. 主介面排版 ---
 st.title("🌾 有其田 客服管理系統")
 
-tab1, tab2, tab3, tab4, tab7, tab6, tab5 = st.tabs([
+if "active_tab_idx" not in st.session_state:
+    st.session_state.active_tab_idx = 0
+
+if "jump_search_query" not in st.session_state:
+    st.session_state.jump_search_query = ""
+
+tab_labels = [
     "🔍 舊客速查與編輯", 
     "🆕 建立新名單", 
     "👤 歷史訂購紀錄", 
@@ -376,19 +375,29 @@ tab1, tab2, tab3, tab4, tab7, tab6, tab5 = st.tabs([
     "🎯 智慧回購清單",
     "📅 報表與匯出",
     "📥 匯入舊名單與官網訂單報表"
-])
+]
+
+selected_tab = st.radio("導覽分頁", tab_labels, index=st.session_state.active_tab_idx, horizontal=True, label_visibility="collapsed")
+current_tab_index = tab_labels.index(selected_tab)
+st.session_state.active_tab_idx = current_tab_index
+
+st.markdown("---")
 
 # ==========================================
-# TAB 1: 舊客戶速查與編輯
+# TAB 0: 舊客戶速查與編輯
 # ==========================================
-with tab1:
-    # 🌟 修正頂部標題文字
+if current_tab_index == 0:
     st.markdown("### 🔍 舊客戶電話 / 代號 / 姓名速查")
     
+    default_search = st.session_state.jump_search_query
+    if default_search:
+        st.session_state.jump_search_query = ""
+
     col_search, _ = st.columns([3, 1])
     with col_search:
         search_query = st.text_input(
             "請輸入查詢關鍵字（姓名、手機或代號）", 
+            value=default_search,
             placeholder="例：蔡汶容、0912345678、或輸入 8761 查詢 CRM008761",
             key="accurate_cust_search"
         ).strip()
@@ -400,7 +409,7 @@ with tab1:
         else:
             if len(matched_custs) > 1:
                 st.info(f"🔎 找到 {len(matched_custs)} 位符合條件的客戶，請選擇：")
-                cust_options = {f"[{c[1]}] {c[2]} (電話:{c[5]} / 地址:{str(c[9])[:20]}...)": c[0] for c in matched_custs}
+                cust_options = {f"[{c[1] if str(c[1]).strip() else '待查'}] {c[2]} (電話:{c[5]} / 地址:{str(c[9])[:20]}...)": c[0] for c in matched_custs}
                 selected_cid = st.selectbox("請選擇客戶：", list(cust_options.keys()), key="search_multi_select")
                 target_cid = cust_options[selected_cid]
             else:
@@ -409,7 +418,7 @@ with tab1:
             cust = get_customer_by_id(target_cid)
             if cust:
                 cid = cust['customer_id']
-                ccode = cust['customer_code']
+                ccode = str(cust['customer_code']).strip() if pd.notna(cust['customer_code']) else ""
                 cname = cust['name']
                 cgender = cust['gender']
                 cid_card = cust['id_card']
@@ -429,7 +438,8 @@ with tab1:
                 total_orders = len(history_df)
                 total_spent = history_df['amount'].sum() if total_orders > 0 else 0
 
-                st.success(f"🎯 已調出客戶：【{cname}】（代號：{ccode}）")
+                display_code = ccode if ccode else "⚠️ 待確認 / 無代號"
+                st.success(f"🎯 已調出客戶：【{cname}】（代號：{display_code}）")
 
                 m1, m2, m3 = st.columns(3)
                 m1.metric("累積購買次數", f"{total_orders} 次")
@@ -441,7 +451,11 @@ with tab1:
                         st.markdown("##### 👤 【本人】基本資料與常用收件地址")
                         ec1, ec2, ec3 = st.columns(3)
                         with ec1:
-                            edit_code = st.text_input("客戶代號", value=ccode if ccode else "")
+                            # 🌟 如果沒有代號，自動提示下一個可用的 CRM 編號
+                            next_avail = get_next_crm_code()
+                            code_label = "客戶代號" if ccode else f"客戶代號 (系統建議新號：{next_avail})"
+                            edit_code = st.text_input(code_label, value=ccode)
+                            
                             edit_name = st.text_input("客戶姓名 *", value=cname if cname else "")
                             edit_gender = st.selectbox("性別", ["女", "男", "其他"], index=0 if cgender == "女" else (1 if cgender == "男" else 2))
                         with ec2:
@@ -474,10 +488,9 @@ with tab1:
                                 st.success(f"✅ 客戶【{edit_name}】資料已成功更新！")
                                 st.rerun()
 
-                # 🗑️ 刪除重複會員專區（位於基本資料下方）
                 with st.expander("⚠️ 危險操作區：刪除此會員帳號", expanded=False):
                     st.warning("若此會員為重複建檔的幽靈帳號，確認後可點擊下方按鈕將其永久刪除（包含歷史訂單）。")
-                    del_cust_chk = st.checkbox(f"我確定要刪除客戶 【{cname}】 ({ccode})", key=f"chk_del_cust_{cid}")
+                    del_cust_chk = st.checkbox(f"我確定要刪除客戶 【{cname}】", key=f"chk_del_cust_{cid}")
                     if del_cust_chk:
                         if st.button(f"🚨 確認永久刪除此會員", key=f"btn_del_cust_{cid}", type="primary"):
                             delete_customer(cid)
@@ -554,7 +567,6 @@ with tab1:
 
                 st.markdown("---")
                 
-                # 🌟 把「為客戶新增訂單」區塊移到歷史訂單的上方
                 st.subheader(f"📦 為【{cname}】新增訂單")
                 with st.form(key=f"add_order_for_tab1_{cid}", clear_on_submit=True):
                     oc1, oc2, oc3 = st.columns(3)
@@ -586,16 +598,14 @@ with tab1:
                             st.rerun()
 
                 st.markdown("---")
-                
-                # 🌟 歷史購買紀錄加入「分層折疊」防洗版機制
                 st.markdown("#### 📜 歷史購買紀錄 (點擊展開檢視/編輯/刪除)")
                 with st.expander(f"📁 點擊展開【{cname}】的 {total_orders} 筆歷史訂單明細", expanded=False):
                     render_editable_orders(history_df, "tab1")
 
 # ==========================================
-# TAB 2: 建立全新會員名單
+# TAB 1: 建立全新會員名單
 # ==========================================
-with tab2:
+elif current_tab_index == 1:
     st.subheader("🆕 建立全新會員名單（系統自動編排 CRM 代號）")
     auto_code = get_next_crm_code()
     st.info(f"系統已自動指派下一位會員代號：`:blue[**{auto_code}**]`")
@@ -674,9 +684,9 @@ with tab2:
                 st.rerun()
 
 # ==========================================
-# TAB 3: 歷史訂購紀錄
+# TAB 2: 歷史訂購紀錄
 # ==========================================
-with tab3:
+elif current_tab_index == 2:
     col_t3_title, col_t3_search = st.columns([1, 1])
     with col_t3_title:
         st.subheader("👤 客戶檔案 與 歷史訂購紀錄")
@@ -702,7 +712,7 @@ with tab3:
 
         if cust:
             cid = cust['customer_id']
-            ccode = cust['customer_code']
+            ccode = str(cust['customer_code']).strip() if pd.notna(cust['customer_code']) else ""
             cname = cust['name']
             cgender = cust['gender']
             cid_card = cust['id_card']
@@ -726,7 +736,10 @@ with tab3:
                     st.markdown("##### 👤 本人資料與常用地址")
                     tc1, tc2, tc3 = st.columns(3)
                     with tc1:
-                        t_code = st.text_input("客戶代號", value=ccode if ccode else "")
+                        next_avail_t3 = get_next_crm_code()
+                        code_label_t3 = "客戶代號" if ccode else f"客戶代號 (系統建議新號：{next_avail_t3})"
+                        t_code = st.text_input(code_label_t3, value=ccode)
+                        
                         t_name = st.text_input("客戶姓名 *", value=cname if cname else "")
                         t_gender = st.selectbox("性別", ["女", "男", "其他"], index=0 if cgender == "女" else (1 if cgender == "男" else 2))
                     with tc2:
@@ -755,10 +768,9 @@ with tab3:
                         st.success("✅ 客戶資料已同步更新！")
                         st.rerun()
 
-            # 🗑️ 刪除重複會員專區（位於 Tab 3 基本資料下方）
             with st.expander("⚠️ 危險操作區：刪除此會員帳號", expanded=False):
                 st.warning("若此會員為重複建檔的幽靈帳號，確認後可點擊下方按鈕將其永久刪除（包含歷史訂單）。")
-                del_cust_chk_t3 = st.checkbox(f"我確定要刪除客戶 【{cname}】 ({ccode})", key=f"chk_del_cust_t3_{cid}")
+                del_cust_chk_t3 = st.checkbox(f"我確定要刪除客戶 【{cname}】", key=f"chk_del_cust_t3_{cid}")
                 if del_cust_chk_t3:
                     if st.button(f"🚨 確認永久刪除此會員", key=f"btn_del_cust_t3_{cid}", type="primary"):
                         delete_customer(cid)
@@ -834,8 +846,6 @@ with tab3:
                                     st.rerun()
 
             st.markdown("---")
-            
-            # 🌟 把「為客戶新增訂單」區塊移到歷史訂單的上方 (Tab 3 同步)
             st.subheader(f"📦 為【{cname}】新增訂單")
             with st.form(key=f"add_order_for_tab3_{cid}", clear_on_submit=True):
                 oc1, oc2, oc3 = st.columns(3)
@@ -867,8 +877,6 @@ with tab3:
                         st.rerun()
 
             st.markdown("---")
-            
-            # 🌟 歷史購買紀錄加入「分層折疊」防洗版機制 (Tab 3 同步)
             st.markdown("#### 📜 歷史購買紀錄 (點擊展開檢視/編輯/刪除)")
             with st.expander(f"📁 點擊展開【{cname}】的 {len(h_df)} 筆歷史訂單明細", expanded=False):
                 render_editable_orders(h_df, "tab3")
@@ -876,13 +884,15 @@ with tab3:
         st.info("⚠️ 查無符合條件的客戶。")
 
 # ==========================================
-# TAB 4: 客戶名冊總表 (🚀 恢復乾淨極速唯讀表格模式)
+# TAB 3: 客戶名冊總表
 # ==========================================
-with tab4:
+elif current_tab_index == 3:
     st.subheader("📊 客戶名冊總表")
     
     col_filter, _ = st.columns([3, 1])
     with col_filter:
+        # 🌟 一鍵快速篩選「無代號孤兒」的貼心功能
+        show_pending_only = st.checkbox("🔍 只顯示「無代號 / 待確認」的名單")
         tab4_search = st.text_input("🔍 在總表中搜尋 (請輸入姓名、手機號碼或客戶代號)：", key="tab4_search").strip()
 
     df_all = read_query("""
@@ -906,19 +916,23 @@ with tab4:
     """)
 
     if not df_all.empty:
+        df_filtered = df_all
+
+        # 套用無代號篩選
+        if show_pending_only:
+            df_filtered = df_filtered[(df_filtered["客戶代號"].isna()) | (df_filtered["客戶代號"].str.strip() == "")]
+
+        # 套用文字搜尋篩選
         if tab4_search:
             search_upper = tab4_search.upper()
-            df_filtered = df_all[
-                df_all["姓名"].str.contains(tab4_search, na=False) | 
-                df_all["主要手機"].str.contains(tab4_search, na=False) |
-                df_all["客戶代號"].str.contains(search_upper, na=False)
+            df_filtered = df_filtered[
+                df_filtered["姓名"].str.contains(tab4_search, na=False) | 
+                df_filtered["主要手機"].str.contains(tab4_search, na=False) |
+                df_filtered["客戶代號"].str.contains(search_upper, na=False)
             ]
-        else:
-            df_filtered = df_all
 
-        st.markdown("💡 **小提示：此總表為純檢視模式，載入最為快速。若需刪除重複會員或編輯資料，請至「🔍 舊客速查與編輯」頁面操作。**")
+        st.markdown("💡 **小提示：此總表為純檢視模式，載入最為快速。若需刪除重複會員或編輯補上代號，請至「🔍 舊客速查與編輯」頁面操作。**")
 
-        # ⚡ 捨棄全部按鈕與複雜格子，回歸原生超高速 DataFrame 唯讀渲染 (0.1秒秒開)
         st.dataframe(df_filtered, use_container_width=True, hide_index=True)
 
         st.markdown("---")
@@ -938,9 +952,9 @@ with tab4:
         st.info("尚無客戶資料。")
 
 # ==========================================
-# TAB 7: 🎯 智慧回購清單與電銷戰情室
+# TAB 4: 智慧回購清單與電銷戰情室
 # ==========================================
-with tab7:
+elif current_tab_index == 4:
     st.subheader("🎯 智慧回購清單與電銷追蹤戰情室")
     st.markdown("系統自動幫您篩選出「今日需要再次電訪」以及「超過 180 天未回購的沉睡客」名單，點擊即可直接展開聯繫！")
 
@@ -1010,9 +1024,9 @@ with tab7:
             )
 
 # ==========================================
-# TAB 6: 期間訂單報表與電銷績效匯出
+# TAB 5: 期間訂單報表與電銷績效匯出
 # ==========================================
-with tab6:
+elif current_tab_index == 5:
     st.subheader("📅 期間訂單紀錄與電話行銷成效報表")
     
     report_type = st.radio("選擇要產生的報表類型：", ["📦 期間訂單明細報表", "📞 電話行銷漏斗與客服績效報表"], horizontal=True)
@@ -1083,11 +1097,12 @@ with tab6:
                     st.download_button("📥 下載電銷績效報表 (XLSX)", out.getvalue(), f"有其田_電銷績效報表_{start_date}至{end_date}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # ==========================================
-# TAB 5: 批次匯入舊名單與官網訂單報表
+# TAB 6: 批次匯入舊名單與官網訂單報表 (🚀 待查隔離版)
 # ==========================================
-with tab5:
-    st.subheader("📥 智慧匯入中心（以手機號碼為主來源）")
-    st.info("💡 系統會自動以【會員手機】為主識別依據。若購買人相同但收件人不同，系統會自動將收件人寫入該會員的「第二收件人」中，避免重複建立幽靈會員！")
+elif current_tab_index == 6:
+    st.subheader("📥 智慧匯入中心（自動隔離待查名單與去重）")
+    # 🌟 你可以隨意修改下面引號內的文字！
+    st.info("💡 若比對不到會員手機，系統不會自動配發 CRM 新代號，而是歸入「待確認名單」供您後續比對，絕不產生幽靈編號！")
     
     uploaded_file = st.file_uploader("上傳 Excel 檔案（.xlsx）", type=["xlsx", "xls"], key="excel_uploader_tab5")
 
@@ -1104,7 +1119,6 @@ with tab5:
                 existing_cust_df = read_query("SELECT customer_id, customer_code, phone FROM customers")
                 code_to_id = {}
                 phone_to_id = {}
-                max_crm_num = 8759
 
                 for _, r in existing_cust_df.iterrows():
                     cid = int(r['customer_id'])
@@ -1112,9 +1126,6 @@ with tab5:
                     c_phone = str(r['phone']).strip() if pd.notna(r['phone']) else ""
                     if c_code:
                         code_to_id[c_code] = cid
-                        m = re.search(r"CRM(\d+)", c_code)
-                        if m and int(m.group(1)) > max_crm_num:
-                            max_crm_num = int(m.group(1))
                     if c_phone:
                         phone_to_id[c_phone] = cid
 
@@ -1187,19 +1198,18 @@ with tab5:
                                     })
                                     existing_order_set.add((matched_cid, r_code))
                             else:
-                                max_crm_num += 1
-                                cust_code = f"CRM{max_crm_num:06d}"
+                                # 🌟 取消自動編號，將這筆未註冊客留空 (空字串)，進入待查區
+                                cust_code = ""
 
                                 cust_inserts.append({
                                     "customer_code": cust_code, "name": name, "gender": "女", "id_card": "",
                                     "phone": p1, "phone_backup": "", "tel": "", "address": "官網匯入地址", "created_at": now_str,
                                     "customer_source": "官網"
                                 })
-                                phone_to_id[p1] = cust_code
-                                code_to_id[cust_code] = cust_code
+                                phone_to_id[p1] = p1 # 暫時用手機當辨識KEY
 
                                 order_tasks.append({
-                                    "target": cust_code,
+                                    "target": p1,
                                     "channel": ord_item["channel"],
                                     "product": ord_item["product"],
                                     "amount": ord_item["amount"],
@@ -1255,9 +1265,9 @@ with tab5:
                                         })
                                         existing_order_set.add((matched_cid, r_code))
                             else:
+                                # 🌟 舊版名單：如果是空的就不自動生號碼
                                 if not cust_code:
-                                    max_crm_num += 1
-                                    cust_code = f"CRM{max_crm_num:06d}"
+                                    cust_code = ""
 
                                 cust_inserts.append({
                                     "customer_code": cust_code, "name": name, "gender": gender, "id_card": id_card,
@@ -1265,12 +1275,13 @@ with tab5:
                                     "customer_source": "未指定 / 自然流量"
                                 })
                                 if p1:
-                                    phone_to_id[p1] = cust_code
-                                code_to_id[cust_code] = cust_code
+                                    phone_to_id[p1] = p1 if not cust_code else cust_code
+                                if cust_code:
+                                    code_to_id[cust_code] = cust_code
 
                                 for o_chan, o_date, r_code in row_orders:
                                     order_tasks.append({
-                                        "target": cust_code,
+                                        "target": cust_code if cust_code else p1,
                                         "channel": o_chan,
                                         "product": "常態訂購品項",
                                         "amount": 0,
@@ -1280,7 +1291,7 @@ with tab5:
                                     })
 
                 bar.progress(50)
-                status.info(f"⚡ [2/3] 正在安全寫入 {len(cust_inserts)} 位全新真實會員...")
+                status.info(f"⚡ [2/3] 正在寫入 {len(cust_inserts)} 位待確認名單...")
 
                 engine = get_db_engine()
                 if cust_inserts:
@@ -1332,6 +1343,6 @@ with tab5:
 
                 bar.progress(100)
                 status.empty()
-                st.success(f"🎉 智慧匯入大成功！成功新增 **{len(cust_inserts)}** 位真實新會員（已排除收件人干擾），並精準寫入 **{len(final_orders)}** 筆訂單與金額！")
+                st.success(f"🎉 智慧匯入大成功！成功載入 **{len(cust_inserts)}** 筆名單，並精準寫入 **{len(final_orders)}** 筆訂單與金額！未配對成功的帳號已放置於「待確認名單」中供您查詢。")
         except Exception as e:
             st.error(f"匯入錯誤：{e}")

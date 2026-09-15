@@ -16,11 +16,11 @@ SOURCES_LIST = [
     "未指定 / 自然流量", 
     "FB 再行銷", 
     "FB 新客", 
-    "FB 貼文", 
-    "Google 關鍵字", 
+    "FB 自然貼文", 
+    "Google 關鍵字搜尋", 
     "Google PMAX 廣告", 
     "Google Demand Gen", 
-    "LINE 訂購", 
+    "LINE 官方帳號", 
     "廣播", 
     "簡訊", 
     "其他"
@@ -150,7 +150,6 @@ if not check_login():
 # ==================== 以下為原本的系統主要功能 ====================
 
 with st.sidebar:
-    # 🌟 徹底移除 :blue[] 亂碼，改為純淨粗體字
     st.markdown(f"### 👤 目前使用者：**{st.session_state.username}**")
     st.caption("連線狀態：🟢 Supabase 雲端資料庫已加密連線")
     if st.button("🚪 登出系統"):
@@ -367,14 +366,9 @@ def get_source_idx(src):
         return SOURCES_LIST.index(src)
     return 0
 
-# --- 4. 主介面排版 (🌟 恢復原生乾淨分頁，徹底移除紅色圈圈) ---
+# --- 4. 主介面排版 (回歸原生無紅圈 Tab 分頁) ---
 st.title("🌾 有其田 客服管理系統")
 
-# 保留搜尋快取功能，但不做強制跳轉
-if "jump_search_query" not in st.session_state:
-    st.session_state.jump_search_query = ""
-
-# 徹底使用原生 st.tabs，杜絕單選按鈕(radio)與紅圈圈
 tab1, tab2, tab3, tab4, tab7, tab6, tab5 = st.tabs([
     "🔍 舊客速查與編輯", 
     "🆕 建立新名單", 
@@ -391,15 +385,10 @@ tab1, tab2, tab3, tab4, tab7, tab6, tab5 = st.tabs([
 with tab1:
     st.markdown("### 🔍 舊客戶電話 / 代號 / 姓名速查")
     
-    default_search = st.session_state.jump_search_query
-    if default_search:
-        st.session_state.jump_search_query = ""
-
     col_search, _ = st.columns([3, 1])
     with col_search:
         search_query = st.text_input(
             "請輸入查詢關鍵字（姓名、手機或代號）", 
-            value=default_search,
             placeholder="例：蔡汶容、0912345678、或輸入 8761 查詢 CRM008761",
             key="accurate_cust_search"
         ).strip()
@@ -932,14 +921,28 @@ with tab4:
 
         st.markdown("💡 **小提示：此總表為純檢視模式，載入最為快速。若需刪除重複會員或編輯補上代號，請直接切換至「🔍 舊客速查與編輯」頁面操作。**")
 
+        # 🚀 前台顯示：隱藏 歷史訂購明細，保持版面乾淨
         display_df = df_filtered.drop(columns=["歷史訂購明細"], errors='ignore')
         st.dataframe(display_df, use_container_width=True, hide_index=True)
 
         st.markdown("---")
         
+        # 🚀 報表匯出：動態將「歷史訂購明細」拆分成獨立的多個欄位 (歷史訂單 1, 歷史訂單 2...)
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df_filtered.to_excel(writer, index=False, sheet_name='客戶名冊')
+            export_df = df_filtered.copy()
+            
+            if "歷史訂購明細" in export_df.columns:
+                export_df["歷史訂購明細"] = export_df["歷史訂購明細"].fillna("")
+                orders_split = export_df["歷史訂購明細"].str.split(" | ", regex=False, expand=True)
+                
+                if not orders_split.empty and orders_split.shape[1] > 0:
+                    orders_split.columns = [f"歷史訂單 {i+1}" for i in range(orders_split.shape[1])]
+                    export_df = export_df.drop(columns=["歷史訂購明細"]).join(orders_split)
+                else:
+                    export_df = export_df.drop(columns=["歷史訂購明細"])
+                    
+            export_df.to_excel(writer, index=False, sheet_name='客戶名冊')
         excel_data = output.getvalue()
         
         st.download_button(

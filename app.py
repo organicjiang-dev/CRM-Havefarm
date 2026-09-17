@@ -16,7 +16,8 @@ SOURCES_LIST = [
     "未指定 / 自然流量", 
     "FB 再行銷", 
     "FB 新客", 
-    "Google 關鍵字 (Search)", 
+    "FB 自然貼文", 
+    "Google 關鍵字搜尋", 
     "Google PMAX 廣告", 
     "Google Demand Gen", 
     "LINE 官方帳號", 
@@ -395,7 +396,7 @@ tab1, tab2, tab3, tab4, tab7, tab6, tab5 = st.tabs([
 ])
 
 # ==========================================
-# TAB 1: 舊客戶速查與編輯
+# TAB 1: 舊客戶速查與編輯 (🌟 置中極簡格子版面)
 # ==========================================
 with tab1:
     col_left_spacer, col_main_center, col_right_spacer = st.columns([1, 4, 1])
@@ -900,23 +901,18 @@ with tab3:
 # ==========================================
 # 🌟 Python 處理歷史訂單匯出格式函數 (西元轉民國, 附帶管道代碼)
 # ==========================================
-def format_export_order(val):
-    if pd.isna(val) or not str(val).strip(): 
+def format_export_order(dstr, channel_prefix):
+    if pd.isna(dstr) or not str(dstr).strip(): 
         return ""
-    parts = str(val).split("@@")
-    if len(parts) == 2:
-        chan, dstr = parts
-        try:
-            d = pd.to_datetime(dstr)
-            roc_year = d.year - 1911
-            p = "A" if "官網" in chan else ("B" if "電話" in chan else ("L" if "LINE" in chan else ""))
-            return f"{p}{roc_year}-{d.strftime('%m%d')}"
-        except:
-            return ""
-    return ""
+    try:
+        d = pd.to_datetime(dstr)
+        roc_year = d.year - 1911
+        return f"{channel_prefix}{roc_year}-{d.strftime('%m%d')}"
+    except:
+        return ""
 
 # ==========================================
-# TAB 4: 客戶名冊總表
+# TAB 4: 客戶名冊總表 (🌟 新增 3 張報表獨立分流匯出)
 # ==========================================
 with tab4:
     st.subheader("📊 客戶名冊總表")
@@ -926,9 +922,10 @@ with tab4:
         show_pending_only = st.checkbox("🔍 只顯示「無代號 / 待確認」的名單")
         tab4_search = st.text_input("🔍 在總表中搜尋 (請輸入姓名、手機號碼或客戶代號)：", key="tab4_search").strip()
 
-    # 🚀 在 SQL 中以 oldest 優先 (ASC) 串接日期與管道，供後台 Pandas 拆欄使用
+    # 🚀 在 SQL 中以 oldest 優先 (ASC) 分別抓取官網與電話的訂單日期
     df_all = read_query("""
         SELECT 
+            c.customer_id,
             c.customer_code AS "客戶代號",
             c.name AS "姓名",
             c.customer_source AS "顧客來源",
@@ -941,7 +938,9 @@ with tab4:
             COUNT(o.order_id) AS "總購買次數",
             COALESCE(SUM(o.amount), 0) AS "歷史消費金額",
             MAX(o.order_date) AS "最後購買日",
-            (SELECT STRING_AGG(channel || '@@' || order_date::text, '|||' ORDER BY order_date ASC) FROM orders WHERE customer_id = c.customer_id) AS "歷史訂購明細"
+            (SELECT STRING_AGG(order_date::text, '|||' ORDER BY order_date ASC) FROM orders WHERE customer_id = c.customer_id) AS "所有訂購明細",
+            (SELECT STRING_AGG(order_date::text, '|||' ORDER BY order_date ASC) FROM orders WHERE customer_id = c.customer_id AND channel LIKE '%官網%') AS "官網訂單",
+            (SELECT STRING_AGG(order_date::text, '|||' ORDER BY order_date ASC) FROM orders WHERE customer_id = c.customer_id AND (channel LIKE '%電話%' OR channel LIKE '%廣播%')) AS "電話訂單"
         FROM customers c
         LEFT JOIN orders o ON c.customer_id = o.customer_id
         GROUP BY c.customer_id
@@ -965,41 +964,62 @@ with tab4:
         st.markdown("💡 **小提示：此總表為純檢視模式，載入最為快速。若需刪除重複會員或編輯補上代號，請直接切換至「🔍 舊客速查與編輯」頁面操作。**")
 
         # 🚀 前台顯示：隱藏 歷史訂購明細，保持版面乾淨
-        display_df = df_filtered.drop(columns=["歷史訂購明細"], errors='ignore')
+        display_df = df_filtered.drop(columns=["所有訂購明細", "官網訂單", "電話訂單", "customer_id"], errors='ignore')
         st.dataframe(display_df, use_container_width=True, hide_index=True)
 
         st.markdown("---")
         
-        # 🚀 報表匯出：動態將「歷史訂購明細」轉換為民國年，並拆分成獨立的欄位 (購1, 購2...)
+        # 🚀 報表匯出：產生 3 張 Sheet (綜合、官網專屬、電話專屬)
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            export_df = df_filtered.copy()
             
-            if "歷史訂購明細" in export_df.columns:
-                export_df["歷史訂購明細"] = export_df["歷史訂購明細"].fillna("")
-                
-                # 利用 Pandas 強大的擴展功能，自動依照 ||| 切割出多個欄位
-                orders_split = export_df["歷史訂購明細"].str.split(r"\|\|\|", regex=True, expand=True)
-                
-                if not orders_split.empty and orders_split.shape[1] > 0:
-                    # 將每一欄套用轉換格式 (A115-0819)
-                    for col in orders_split.columns:
-                        orders_split[col] = orders_split[col].apply(lambda x: format_export_order(x) if isinstance(x, str) else "")
-                    
-                    # 重新命名欄位為 購1, 購2, 購3...
-                    orders_split.columns = [f"購{i+1}" for i in range(orders_split.shape[1])]
-                    export_df = export_df.drop(columns=["歷史訂購明細"]).join(orders_split)
-                else:
-                    export_df = export_df.drop(columns=["歷史訂購明細"])
-                    
-            export_df.to_excel(writer, index=False, sheet_name='客戶名冊')
+            base_cols = ["客戶代號", "姓名", "顧客來源", "性別", "主要手機", "備用手機", "市話", "常用地址", "最後購買管道", "總購買次數", "歷史消費金額", "最後購買日"]
+            
+            # --- Sheet 1: 綜合總表 ---
+            export_all = df_filtered[base_cols + ["所有訂購明細"]].copy()
+            export_all["所有訂購明細"] = export_all["所有訂購明細"].fillna("")
+            split_all = export_all["所有訂購明細"].str.split(r"\|\|\|", regex=True, expand=True)
+            if not split_all.empty and split_all.shape[1] > 0:
+                for col in split_all.columns:
+                    split_all[col] = split_all[col].apply(lambda x: format_export_order(x, "A") if isinstance(x, str) else "")
+                split_all.columns = [f"購{i+1}" for i in range(split_all.shape[1])]
+                export_all = export_all.drop(columns=["所有訂購明細"]).join(split_all)
+            else:
+                export_all = export_all.drop(columns=["所有訂購明細"])
+            export_all.to_excel(writer, index=False, sheet_name='綜合名單總表')
+
+            # --- Sheet 2: 官網客戶專屬名單 ---
+            export_web = df_filtered[df_filtered["官網訂單"].notna()][base_cols + ["官網訂單"]].copy()
+            split_web = export_web["官網訂單"].str.split(r"\|\|\|", regex=True, expand=True)
+            if not split_web.empty and split_web.shape[1] > 0:
+                for col in split_web.columns:
+                    split_web[col] = split_web[col].apply(lambda x: format_export_order(x, "A") if isinstance(x, str) else "")
+                split_web.columns = [f"購{i+1}" for i in range(split_web.shape[1])]
+                export_web = export_web.drop(columns=["官網訂單"]).join(split_web)
+            else:
+                export_web = export_web.drop(columns=["官網訂單"])
+            export_web.to_excel(writer, index=False, sheet_name='官網客戶名單')
+
+            # --- Sheet 3: 電話客戶專屬名單 (電銷用) ---
+            export_phone = df_filtered[df_filtered["電話訂單"].notna()][base_cols + ["電話訂單"]].copy()
+            split_phone = export_phone["電話訂單"].str.split(r"\|\|\|", regex=True, expand=True)
+            if not split_phone.empty and split_phone.shape[1] > 0:
+                for col in split_phone.columns:
+                    split_phone[col] = split_phone[col].apply(lambda x: format_export_order(x, "B") if isinstance(x, str) else "")
+                split_phone.columns = [f"購{i+1}" for i in range(split_phone.shape[1])]
+                export_phone = export_phone.drop(columns=["電話訂單"]).join(split_phone)
+            else:
+                export_phone = export_phone.drop(columns=["電話訂單"])
+            export_phone.to_excel(writer, index=False, sheet_name='電話客戶名單')
+
         excel_data = output.getvalue()
         
         st.download_button(
-            label="📥 匯出顯示的名冊與全部訂購歷史 (XLSX Excel檔)",
+            label="📥 匯出精準分類名冊 (內含：綜合總表 / 官網名單 / 電話名單 三個工作表)",
             data=excel_data,
             file_name="有其田_客戶完整名冊.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            type="primary"
         )
     else:
         st.info("尚無客戶資料。")
@@ -1150,11 +1170,11 @@ with tab6:
                     st.download_button("📥 下載電銷績效報表 (XLSX)", out.getvalue(), f"有其田_電銷績效報表_{start_date}至{end_date}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # ==========================================
-# TAB 5: 批次匯入舊名單與官網訂單報表 (🚀 含一鍵去重工具)
+# TAB 5: 批次匯入舊名單與官網訂單報表
 # ==========================================
 with tab5:
     st.subheader("📥 智慧匯入中心（自動隔離待查名單與去重）")
-    st.info("💡 支援官網訂單報表與舊名單上傳。系統會自動依「手機號碼」防重複建檔。")
+    st.info("💡 若比對不到會員手機，系統不會自動配發 CRM 新代號，而是歸入「待確認名單」供您後續比對，絕不產生幽靈編號！")
     
     uploaded_file = st.file_uploader("上傳 Excel 檔案（.xlsx）", type=["xlsx", "xls"], key="excel_uploader_tab5")
 
@@ -1397,13 +1417,11 @@ with tab5:
         except Exception as e:
             st.error(f"匯入錯誤：{e}")
             
-    # 🌟 資料庫進階維護區：一鍵清理重複訂單
     st.markdown("---")
     st.subheader("🛠️ 資料庫進階維護區：修復重複歷史訂單")
     st.warning("若您先前匯入舊名單產生了「0元 常態訂購品項」的佔位訂單，後來又匯入含有真實金額的「官網報表」導致同一天出現兩筆訂單，請點擊下方按鈕進行智慧清理。")
     if st.button("🧹 一鍵自動清理「同日重複的 0 元佔位訂單」"):
         try:
-            # 刪除同一天、同一個客人，且金額為 0 元的重複佔位訂單
             cleanup_sql = """
                 DELETE FROM orders o1
                 WHERE o1.amount = 0

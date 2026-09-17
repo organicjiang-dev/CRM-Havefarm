@@ -26,39 +26,40 @@ ORDER_SOURCES = [
     "其他"
 ]
 
-# 🚨 採用真空壓縮 CSS，字體放大與按鈕跳色設計
+# 🚨 採用真空壓縮 CSS，字體再放大與按鈕優化設計
 st.markdown("""
 <style>
-/* 🌟 1. 字體全面放大，提升舒適度 */
-html, body, [class*="css"] { font-size: 18px !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", sans-serif !important; color: #2d3748 !important; }
+/* 🌟 1. 字體與高度再放大，達到極致舒適大格子 */
+html, body, [class*="css"] { font-size: 20px !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", sans-serif !important; color: #2d3748 !important; }
 
 /* 頂部分頁導覽列 (Tabs) */
 div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { gap: 4px !important; padding-top: 10px !important; padding-bottom: 5px !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"] { font-size: 18px !important; background-color: #f8fafc !important; border-radius: 4px 4px 0 0 !important; border: 1px solid #cbd5e0 !important; border-bottom: none !important; padding: 10px 20px !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] { border-top: 4px solid #e53e3e !important; background-color: #ffffff !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"] { font-size: 20px !important; background-color: #f8fafc !important; border-radius: 4px 4px 0 0 !important; border: 1px solid #cbd5e0 !important; border-bottom: none !important; padding: 10px 20px !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] { border-top: 5px solid #e53e3e !important; background-color: #ffffff !important; }
 
 /* 標題與文字 */
-h1 { font-size: 30px !important; font-weight: 800 !important; margin-bottom: 10px !important; }
-h3 { font-size: 22px !important; font-weight: 700 !important; margin-top: 5px !important; margin-bottom: 10px !important; color: #2b6cb0 !important; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; }
+h1 { font-size: 32px !important; font-weight: 900 !important; margin-bottom: 10px !important; }
+h3 { font-size: 24px !important; font-weight: 800 !important; margin-top: 5px !important; margin-bottom: 10px !important; color: #2b6cb0 !important; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; }
 
-/* 輸入框放大緊湊化 */
-input[type="text"], input[type="password"], input[type="number"], select, div[data-baseweb="select"] > div { font-size: 18px !important; min-height: 45px !important; border-radius: 4px !important; border: 1px solid #a0aec0 !important; padding: 6px 12px !important; background-color: #ffffff !important; color: #1a202c !important; }
-div[data-testid="stInputValue"] { min-height: 45px !important; }
-textarea { font-size: 18px !important; min-height: 120px !important; line-height: 1.5 !important; border: 1px solid #a0aec0 !important; border-radius: 4px !important; }
+/* 輸入框放大緊湊化 (高度 50px) */
+input[type="text"], input[type="password"], input[type="number"], select, div[data-baseweb="select"] > div { font-size: 20px !important; min-height: 50px !important; border-radius: 4px !important; border: 1px solid #a0aec0 !important; padding: 6px 12px !important; background-color: #ffffff !important; color: #1a202c !important; }
+div[data-testid="stInputValue"] { min-height: 50px !important; }
+textarea { font-size: 20px !important; min-height: 140px !important; line-height: 1.5 !important; border: 1px solid #a0aec0 !important; border-radius: 4px !important; }
 
 /* 一般按鈕 */
-.stButton > button { min-height: 45px !important; font-size: 18px !important; font-weight: bold !important; border-radius: 4px !important; border: 1px solid #cbd5e0 !important; }
+.stButton > button { min-height: 50px !important; font-size: 20px !important; font-weight: bold !important; border-radius: 6px !important; border: 1px solid #cbd5e0 !important; }
 
-/* 🌟 4. 儲存按鈕跳色設計 (淺藍半透明背景 + 藍色文字) */
+/* 🌟 4. 儲存按鈕專屬跳色設計 (淺藍半透明背景 + 藍色文字) */
 button[kind="primary"] {
-    background-color: rgba(190, 227, 248, 0.6) !important; /* 淺藍色半透明 */
+    background-color: rgba(190, 227, 248, 0.5) !important; /* 淺藍色半透明 */
     color: #2b6cb0 !important; /* 深藍色文字 */
     border: 2px solid #90cdf4 !important;
-    font-size: 18px !important;
+    font-size: 20px !important;
     font-weight: 900 !important;
+    border-radius: 6px !important;
 }
 button[kind="primary"]:hover {
-    background-color: rgba(190, 227, 248, 0.9) !important;
+    background-color: rgba(190, 227, 248, 0.8) !important;
     border: 2px solid #63b3ed !important;
     color: #1e3a8a !important;
 }
@@ -67,12 +68,12 @@ button[kind="primary"]:hover {
 .lbl { 
     background-color: rgba(190, 227, 248, 0.5); 
     color: #2a4365; 
-    font-weight: 700; 
-    font-size: 16px; 
+    font-weight: 800; 
+    font-size: 18px; 
     text-align: center; 
     border: 1px solid #90cdf4;
     border-radius: 4px;
-    height: 45px;
+    height: 50px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -80,7 +81,7 @@ button[kind="primary"]:hover {
 }
 
 hr { margin: 20px 0 !important; border: 0 !important; border-top: 1px solid #e2e8f0 !important; }
-div.streamlit-expanderHeader { background-color: #f7fafc !important; border: 1px solid #cbd5e0 !important; border-radius: 4px !important; }
+div.streamlit-expanderHeader { background-color: #f7fafc !important; border: 1px solid #cbd5e0 !important; border-radius: 4px !important; font-size: 18px !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -161,16 +162,6 @@ if not check_login():
     st.stop()
 
 # ==================== 以下為系統主要功能 ====================
-
-with st.sidebar:
-    st.markdown(f"### 👤 目前使用者：**{st.session_state.username}**")
-    st.caption("連線狀態：🟢 雲端資料庫已連線")
-    if st.button("🚪 登出系統"):
-        st.session_state.logged_in = False
-        st.session_state.username = ""
-        st.session_state.pwd_verified = False
-        st.session_state.auth_code = ""
-        st.rerun()
 
 @st.cache_resource
 def get_db_engine():
@@ -290,7 +281,11 @@ def render_editable_orders(history_df, prefix_key):
                         o_source = st.selectbox("訂單來源", ORDER_SOURCES, index=source_idx)
                         o_notes = st.text_input("訂單備註", value=str(r['order_notes']) if pd.notna(r['order_notes']) else "")
 
-                    save_order_btn = st.form_submit_button("💾 儲存修改")
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    btn_c1, btn_c2, btn_c3 = st.columns([3, 4, 3])
+                    with btn_c2:
+                        save_order_btn = st.form_submit_button("💾 儲存資料", type="primary", use_container_width=True)
+
                     if save_order_btn:
                         execute_query("UPDATE orders SET channel = :chan, product = :prod, amount = :amt, order_date = :odate, status = :source, order_notes = :notes WHERE order_id = :oid", 
                                       {"chan": o_chan, "prod": o_prod, "amt": o_amt, "odate": o_date, "source": o_source, "notes": o_notes, "oid": oid})
@@ -304,8 +299,19 @@ def render_editable_orders(history_df, prefix_key):
                         st.success(f"✅ 已刪除！")
                         st.rerun()
 
-# --- 主介面排版 ---
-st.title("🌾 有其田 客服管理系統")
+
+# --- 🌟 主介面頂部設計 (移除側邊欄，改至右上角) ---
+col_title, col_user = st.columns([4, 1])
+with col_title:
+    st.title("🌾 有其田 客服管理系統")
+with col_user:
+    st.markdown(f"<div style='text-align: right; padding-top: 15px; font-weight: bold; color: #2b6cb0;'>👤 使用者：{st.session_state.username}</div>", unsafe_allow_html=True)
+    if st.button("🚪 登出系統", use_container_width=True):
+        st.session_state.logged_in = False
+        st.session_state.username = ""
+        st.session_state.pwd_verified = False
+        st.session_state.auth_code = ""
+        st.rerun()
 
 if "jump_search_query" not in st.session_state:
     st.session_state.jump_search_query = ""
@@ -318,7 +324,7 @@ tab1, tab2, tab3, tab4, tab7, tab6, tab5 = st.tabs([
 # TAB 1: 舊客戶速查與編輯 
 # ==========================================
 with tab1:
-    col_left_spacer, col_main_center, col_right_spacer = st.columns([1.5, 7, 1.5])
+    col_left_spacer, col_main_center, col_right_spacer = st.columns([1, 8, 1])
     
     with col_main_center:
         st.markdown("### 🔍 客戶資料查詢")
@@ -375,69 +381,62 @@ with tab1:
                     with st.form(key=f"edit_cust_form_tab1_{cid}"):
                         st.markdown("### ✏️ 基本資料編輯")
                         
-                        # Row 1 (代號 / 統編)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">客戶代號</div>', unsafe_allow_html=True)
                         edit_code = c2.text_input("客戶代號", value=ccode, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">統編</div>', unsafe_allow_html=True)
                         edit_id_card = c4.text_input("統編", value=cid_card, label_visibility="collapsed")
                         
-                        # Row 2 (姓名 / 性別)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">姓名 *</div>', unsafe_allow_html=True)
                         edit_name = c2.text_input("姓名", value=cname, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">性別</div>', unsafe_allow_html=True)
                         edit_gender = c4.selectbox("性別", ["女", "男", "其他"], index=0 if cgender == "女" else (1 if cgender == "男" else 2), label_visibility="collapsed")
                         
-                        # Row 3 (手機 1 / 手機 2)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">手機 1 *</div>', unsafe_allow_html=True)
                         edit_phone = c2.text_input("手機 1", value=cphone, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">手機 2</div>', unsafe_allow_html=True)
                         edit_phone_bak = c4.text_input("手機 2", value=cphone_bak, label_visibility="collapsed")
                         
-                        # Row 4 (市話 1 / 市話 2)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">市話 1</div>', unsafe_allow_html=True)
                         edit_tel = c2.text_input("市話 1", value=ctel, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">市話 2</div>', unsafe_allow_html=True)
                         edit_tel2 = c4.text_input("市話 2", value="", label_visibility="collapsed", placeholder="選填")
 
-                        # Row 5 (地址)
                         ca1, ca2 = st.columns([1.5, 8.5])
                         ca1.markdown('<div class="lbl">地址 *</div>', unsafe_allow_html=True)
                         edit_addr = ca2.text_input("地址", value=caddr, label_visibility="collapsed")
                         
-                        # Row 6 (第二地址)
                         ca1, ca2 = st.columns([1.5, 8.5])
                         ca1.markdown('<div class="lbl">第二地址</div>', unsafe_allow_html=True)
                         edit_r2_addr = ca2.text_input("第二地址", value=cr2_addr, label_visibility="collapsed")
                         
-                        # Row 7 (收件人2)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">收件人2姓名</div>', unsafe_allow_html=True)
                         edit_r2_name = c2.text_input("收件人2姓名", value=cr2_name, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">收件人2手機</div>', unsafe_allow_html=True)
                         edit_r2_phone = c4.text_input("收件人2手機", value=cr2_phone, label_visibility="collapsed")
 
-                        # Row 8 (備註放大)
                         cn1, cn2 = st.columns([1.5, 8.5])
-                        cn1.markdown('<div class="lbl" style="height:120px;">備註</div>', unsafe_allow_html=True)
+                        cn1.markdown('<div class="lbl" style="height:140px;">備註</div>', unsafe_allow_html=True)
                         edit_pref = cn2.text_area("備註", value=cpref, label_visibility="collapsed")
 
                         st.markdown("<br>", unsafe_allow_html=True)
-                        # 🌟 type="primary" 套用跳色的淺藍背景與藍字 CSS
-                        save_cust_btn = st.form_submit_button("💾 儲存並更新客戶資料", type="primary", use_container_width=True)
+                        
+                        # 🌟 儲存按鈕：置中、縮短、跳色設計
+                        btn_col1, btn_col2, btn_col3 = st.columns([3, 4, 3])
+                        with btn_col2:
+                            save_cust_btn = st.form_submit_button("💾 儲存資料", type="primary", use_container_width=True)
 
                         if save_cust_btn:
                             if not edit_name or not edit_phone or not edit_addr:
                                 st.error("姓名、手機 1 與地址不可為空！")
                             else:
-                                # 自動將市話2串接存入資料庫
                                 final_tel = edit_tel.strip()
                                 if edit_tel2.strip():
                                     final_tel += f" / {edit_tel2.strip()}"
-                                    
                                 update_customer_db(cid, edit_code, edit_name, edit_gender, edit_id_card, edit_phone, edit_phone_bak, final_tel, cemail, edit_addr, edit_r2_name, edit_r2_phone, edit_r2_addr, edit_pref, csource)
                                 st.success(f"✅ 更新成功！")
                                 st.rerun()
@@ -456,7 +455,11 @@ with tab1:
                             new_order_source = st.selectbox("訂單來源", ORDER_SOURCES)
                             new_order_notes = st.text_input("本次訂單備註")
 
-                        add_order_btn = st.form_submit_button("➕ 建立這筆新訂單")
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        btn_c1, btn_c2, btn_c3 = st.columns([3, 4, 3])
+                        with btn_c2:
+                            add_order_btn = st.form_submit_button("➕ 建立這筆新訂單", type="primary", use_container_width=True)
+                            
                         if add_order_btn:
                             if not new_order_prod:
                                 st.error("請填寫訂購商品！")
@@ -481,7 +484,7 @@ with tab1:
 # TAB 2: 建立全新會員名單
 # ==========================================
 with tab2:
-    col_left_spacer_t2, col_main_center_t2, col_right_spacer_t2 = st.columns([1.5, 7, 1.5])
+    col_left_spacer_t2, col_main_center_t2, col_right_spacer_t2 = st.columns([1, 8, 1])
     with col_main_center_t2:
         st.markdown("### 🆕 建立全新會員名單")
         auto_code = get_next_crm_code()
@@ -509,7 +512,7 @@ with tab2:
             c1.markdown('<div class="lbl">市話 1</div>', unsafe_allow_html=True)
             n_tel = c2.text_input("市話 1", label_visibility="collapsed")
             c3.markdown('<div class="lbl">市話 2</div>', unsafe_allow_html=True)
-            n_tel2 = c4.text_input("市話 2", label_visibility="collapsed")
+            n_tel2 = c4.text_input("市話 2", label_visibility="collapsed", placeholder="選填")
 
             ca1, ca2 = st.columns([1.5, 8.5])
             ca1.markdown('<div class="lbl">地址 *</div>', unsafe_allow_html=True)
@@ -526,7 +529,7 @@ with tab2:
             n_r2_phone = c4.text_input("收件人2手機", label_visibility="collapsed")
 
             cn1, cn2 = st.columns([1.5, 8.5])
-            cn1.markdown('<div class="lbl" style="height:120px;">備註</div>', unsafe_allow_html=True)
+            cn1.markdown('<div class="lbl" style="height:140px;">備註</div>', unsafe_allow_html=True)
             n_pref = cn2.text_area("備註", label_visibility="collapsed")
 
             st.markdown("---")
@@ -542,8 +545,9 @@ with tab2:
                 n_source = st.selectbox("訂單來源", ORDER_SOURCES)
 
             st.markdown("<br>", unsafe_allow_html=True)
-            # 🌟 type="primary" 套用跳色的淺藍背景與藍字 CSS
-            submit_new_cust = st.form_submit_button("🚀 建立全新會員檔案", type="primary", use_container_width=True)
+            btn_c1, btn_c2, btn_c3 = st.columns([3, 4, 3])
+            with btn_c2:
+                submit_new_cust = st.form_submit_button("🚀 儲存資料", type="primary", use_container_width=True)
 
             if submit_new_cust:
                 clean_np = clean_phone(n_phone)
@@ -585,7 +589,7 @@ with tab2:
 # TAB 3: 歷史訂購紀錄
 # ==========================================
 with tab3:
-    col_left_spacer_t3, col_main_center_t3, col_right_spacer_t3 = st.columns([1.5, 7, 1.5])
+    col_left_spacer_t3, col_main_center_t3, col_right_spacer_t3 = st.columns([1, 8, 1])
     with col_main_center_t3:
         st.markdown("### 👤 歷史訂購紀錄查詢")
         t3_search = st.text_input("🔍 輸入姓名 / 手機 / 代號：", key="tab3_search").strip()
@@ -667,12 +671,13 @@ with tab3:
                     t_r2_phone = c4.text_input("收件人2手機", value=cr2_phone, label_visibility="collapsed")
 
                     cn1, cn2 = st.columns([1.5, 8.5])
-                    cn1.markdown('<div class="lbl" style="height:120px;">備註</div>', unsafe_allow_html=True)
+                    cn1.markdown('<div class="lbl" style="height:140px;">備註</div>', unsafe_allow_html=True)
                     t_pref = cn2.text_area("備註", value=cpref, label_visibility="collapsed")
 
                     st.markdown("<br>", unsafe_allow_html=True)
-                    # 🌟 type="primary" 套用跳色的淺藍背景與藍字 CSS
-                    t_save_btn = st.form_submit_button("💾 儲存並更新基本資料", type="primary", use_container_width=True)
+                    btn_c1, btn_c2, btn_c3 = st.columns([3, 4, 3])
+                    with btn_c2:
+                        t_save_btn = st.form_submit_button("💾 儲存資料", type="primary", use_container_width=True)
 
                     if t_save_btn:
                         final_tel_t3 = t_tel.strip()
@@ -695,7 +700,11 @@ with tab3:
                         new_order_source = st.selectbox("訂單來源", ORDER_SOURCES)
                         new_order_notes = st.text_input("本次訂單備註")
 
-                    add_order_btn = st.form_submit_button("➕ 建立這筆新訂單")
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    btn_c1, btn_c2, btn_c3 = st.columns([3, 4, 3])
+                    with btn_c2:
+                        add_order_btn = st.form_submit_button("➕ 建立這筆新訂單", type="primary", use_container_width=True)
+                        
                     if add_order_btn:
                         if not new_order_prod:
                             st.error("請填寫訂購商品！")

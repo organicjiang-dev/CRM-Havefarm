@@ -8,66 +8,51 @@ import random
 import smtplib
 from email.mime.text import MIMEText
 
-# --- 0. 設定頁面配置與極簡乾淨 CSS ---
+# --- 0. 設定頁面配置與極簡大格子 CSS ---
 st.set_page_config(page_title="有其田 客服 CRM 系統", layout="wide", page_icon="🌾")
-
-# 🔥 顧客來源選項 (Phase 1 廣告追蹤)
-SOURCES_LIST = [
-    "未指定 / 自然流量", 
-    "FB 再行銷", 
-    "FB 新客", 
-    "FB 自然貼文", 
-    "Google 關鍵字搜尋", 
-    "Google PMAX 廣告", 
-    "Google Demand Gen", 
-    "LINE 官方帳號", 
-    "廣播", 
-    "簡訊", 
-    "其他"
-]
 
 # 🚨 採用無空白行真空壓縮，防止 Streamlit 解析器切斷 CSS
 st.markdown("""
 <style>
-/* 整體極簡字體與色彩設定 */
-html, body, [class*="css"] { font-size: 16px !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif !important; color: #2d3748 !important; }
+/* 整體極簡字體與色彩設定 (放大至 20px 提升清晰度) */
+html, body, [class*="css"] { font-size: 20px !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif !important; color: #2d3748 !important; }
 
-/* 頂部分頁導覽列 (Tabs) 優化 */
+/* 頂部分頁導覽列 (Tabs) */
 div[data-testid="stTabs"] { overflow: visible !important; }
 div[data-testid="stTabs"] > div { overflow: visible !important; }
-div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { gap: 8px !important; padding-top: 15px !important; padding-bottom: 10px !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"] { font-size: 18px !important; background-color: #f8fafc !important; border-radius: 6px 6px 0 0 !important; border: 1px solid #e2e8f0 !important; border-bottom: none !important; margin-right: 4px !important; padding: 10px 20px !important; }
+div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { gap: 10px !important; padding-top: 15px !important; padding-bottom: 10px !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"] { font-size: 22px !important; background-color: #f8fafc !important; border-radius: 6px 6px 0 0 !important; border: 1px solid #cbd5e0 !important; border-bottom: none !important; margin-right: 4px !important; padding: 12px 24px !important; }
 div[data-testid="stTabs"] button[data-baseweb="tab"] * { font-weight: 700 !important; color: #718096 !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] { border-top: 4px solid #e53e3e !important; background-color: #ffffff !important; border-left: 1px solid #e2e8f0 !important; border-right: 1px solid #e2e8f0 !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] { border-top: 5px solid #e53e3e !important; background-color: #ffffff !important; border-left: 1px solid #cbd5e0 !important; border-right: 1px solid #cbd5e0 !important; }
 div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] * { color: #e53e3e !important; }
 
 /* 標題與文字層級 */
-h1 { font-size: 32px !important; font-weight: 800 !important; margin-bottom: 16px !important; color: #1a202c !important; }
-h2, h3 { font-size: 24px !important; font-weight: 700 !important; margin-top: 16px !important; margin-bottom: 12px !important; color: #2d3748 !important; }
-h4, h5 { font-size: 18px !important; font-weight: 700 !important; margin-top: 12px !important; color: #2b6cb0 !important; }
-label, label p, [data-testid="stWidgetLabel"] p { font-size: 15px !important; font-weight: 700 !important; color: #4a5568 !important; margin-bottom: 6px !important; }
+h1 { font-size: 36px !important; font-weight: 900 !important; margin-bottom: 16px !important; color: #1a202c !important; }
+h2, h3 { font-size: 28px !important; font-weight: 800 !important; margin-top: 16px !important; margin-bottom: 12px !important; color: #2d3748 !important; }
+h4, h5 { font-size: 22px !important; font-weight: 700 !important; margin-top: 12px !important; color: #2b6cb0 !important; }
+label, label p, [data-testid="stWidgetLabel"] p { font-size: 18px !important; font-weight: 800 !important; color: #2d3748 !important; margin-bottom: 8px !important; }
 
-/* 輸入框與按鈕精緻化 */
-input[type="text"], input[type="password"], input[type="number"], select, div[data-baseweb="select"] > div { font-size: 16px !important; min-height: 48px !important; border-radius: 6px !important; border: 1px solid #cbd5e0 !important; padding: 8px 16px !important; background-color: #ffffff !important; color: #2d3748 !important; }
-div[data-testid="stInputValue"] { min-height: 48px !important; }
-div[data-baseweb="select"] span { font-size: 16px !important; font-weight: 500 !important; }
-textarea { font-size: 16px !important; min-height: 100px !important; line-height: 1.5 !important; border: 1px solid #cbd5e0 !important; border-radius: 6px !important; }
-.stButton > button { min-height: 46px !important; font-size: 16px !important; font-weight: 700 !important; border-radius: 6px !important; padding: 0 24px !important; margin-top: 8px !important; border: 1px solid #cbd5e0 !important; }
+/* 輸入框與按鈕精緻大格子化 */
+input[type="text"], input[type="password"], input[type="number"], select, div[data-baseweb="select"] > div { font-size: 20px !important; min-height: 56px !important; border-radius: 8px !important; border: 2px solid #a0aec0 !important; padding: 10px 16px !important; background-color: #ffffff !important; color: #1a202c !important; font-weight: 600 !important; }
+div[data-testid="stInputValue"] { min-height: 56px !important; }
+div[data-baseweb="select"] span { font-size: 20px !important; font-weight: 600 !important; }
+textarea { font-size: 20px !important; min-height: 180px !important; line-height: 1.6 !important; border: 2px solid #a0aec0 !important; border-radius: 8px !important; font-weight: 600 !important; }
+.stButton > button { min-height: 56px !important; font-size: 20px !important; font-weight: 800 !important; border-radius: 8px !important; padding: 0 30px !important; margin-top: 10px !important; border: 2px solid #cbd5e0 !important; }
 
 /* 統計數字與表格 */
-[data-testid="stMetricValue"] { font-size: 32px !important; font-weight: 800 !important; color: #2b6cb0 !important; }
-[data-testid="stMetricLabel"] p { font-size: 15px !important; font-weight: 600 !important; color: #718096 !important; }
-details summary p, details summary span { font-size: 16px !important; font-weight: 700 !important; color: #2b6cb0 !important; }
-div[data-testid="stDataFrame"] { font-size: 15px !important; }
-div[data-testid="column"] { padding: 0 12px !important; }
-hr { margin: 24px 0 !important; border: 0 !important; border-top: 1px solid #e2e8f0 !important; }
+[data-testid="stMetricValue"] { font-size: 36px !important; font-weight: 900 !important; color: #2b6cb0 !important; }
+[data-testid="stMetricLabel"] p { font-size: 18px !important; font-weight: 700 !important; color: #4a5568 !important; }
+details summary p, details summary span { font-size: 20px !important; font-weight: 800 !important; color: #2c5282 !important; }
+div[data-testid="stDataFrame"] { font-size: 18px !important; }
+div[data-testid="column"] { padding: 0 16px !important; }
+hr { margin: 30px 0 !important; border: 0 !important; border-top: 2px solid #e2e8f0 !important; }
 
 /* 🌟 置中大格子專屬極簡背景色與微陰影 */
-.search-header-box { background-color: #f7fafc; padding: 12px 20px; border-radius: 8px 8px 0 0; border: 1px solid #e2e8f0; border-bottom: none; }
-.search-content-box { padding: 24px; border: 1px solid #e2e8f0; border-radius: 0 0 8px 8px; background-color: #ffffff; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-.edit-header-box { background-color: #ebf8ff; padding: 12px 20px; border-radius: 8px 8px 0 0; border: 1px solid #bee3f8; border-bottom: none; }
-.edit-content-box { padding: 24px; border: 1px solid #bee3f8; border-radius: 0 0 8px 8px; background-color: #ffffff; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-div.streamlit-expanderHeader:has(span:contains("電訪追蹤紀錄")) { background-color: #f0fff4 !important; border: 1px solid #c6f6d5 !important; border-radius: 8px !important; }
+.search-header-box { background-color: #e2e8f0; padding: 16px 24px; border-radius: 10px 10px 0 0; border: 2px solid #cbd5e0; border-bottom: none; }
+.search-content-box { padding: 30px; border: 2px solid #cbd5e0; border-radius: 0 0 10px 10px; background-color: #ffffff; margin-bottom: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+.edit-header-box { background-color: #bee3f8; padding: 16px 24px; border-radius: 10px 10px 0 0; border: 2px solid #90cdf4; border-bottom: none; }
+.edit-content-box { padding: 30px; border: 2px solid #90cdf4; border-radius: 0 0 10px 10px; background-color: #ffffff; margin-bottom: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+div.streamlit-expanderHeader:has(span:contains("電訪追蹤紀錄")) { background-color: #f0fff4 !important; border: 2px solid #9ae6b4 !important; border-radius: 8px !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -374,12 +359,7 @@ def render_editable_orders(history_df, prefix_key):
                         st.success(f"✅ 已刪除訂單 #{oid}！")
                         st.rerun()
 
-def get_source_idx(src):
-    if src in SOURCES_LIST:
-        return SOURCES_LIST.index(src)
-    return 0
-
-# --- 4. 主介面排版 (回歸原生無紅圈 Tab 分頁) ---
+# --- 4. 主介面排版 ---
 st.title("🌾 有其田 客服管理系統")
 
 if "jump_search_query" not in st.session_state:
@@ -396,7 +376,7 @@ tab1, tab2, tab3, tab4, tab7, tab6, tab5 = st.tabs([
 ])
 
 # ==========================================
-# TAB 1: 舊客戶速查與編輯 (🌟 置中極簡格子版面)
+# TAB 1: 舊客戶速查與編輯 (🌟 全版展開直覺版)
 # ==========================================
 with tab1:
     col_left_spacer, col_main_center, col_right_spacer = st.columns([1, 4, 1])
@@ -456,6 +436,12 @@ with tab1:
                     display_code = ccode if ccode else "⚠️ 待確認 / 無代號"
                     st.success(f"🎯 已調出客戶：【{cname}】（代號：{display_code}）")
 
+                    m1, m2, m3 = st.columns(3)
+                    m1.metric("累積購買次數", f"{total_orders} 次")
+                    m2.metric("累積消費金額", f"NT$ {total_spent:,}")
+                    m3.metric("初次建檔時間", str(ccreated).split()[0] if ccreated else "-")
+
+                    # 🌟 移除 expander，直接展開顯示基本資料 (精簡欄位版)
                     st.markdown('<div class="edit-header-box"><h3 style="margin:0; color:#2c5282;">✏️ 基本資料編輯</h3></div>', unsafe_allow_html=True)
                     st.markdown('<div class="edit-content-box">', unsafe_allow_html=True)
                     
@@ -469,18 +455,17 @@ with tab1:
                             edit_name = st.text_input("姓  名 *", value=cname if cname else "")
                             edit_phone = st.text_input("行 動 (1) *", value=cphone if cphone else "")
                             edit_tel = st.text_input("電 話 (1)", value=ctel if ctel else "")
-                            edit_source = st.selectbox("客戶等級 (來源)", SOURCES_LIST, index=get_source_idx(csource))
                             
                         with ec_right:
-                            edit_id_card = st.text_input("身分證號", value=cid_card if cid_card else "")
+                            edit_id_card = st.text_input("身分證號 / 統編", value=cid_card if cid_card else "")
                             edit_gender = st.selectbox("性  別", ["女", "男", "其他"], index=0 if cgender == "女" else (1 if cgender == "男" else 2))
                             edit_phone_bak = st.text_input("行 動 (2)", value=cphone_bak if cphone_bak else "")
-                            st.text_input("電 話 (2)", value="", disabled=True, placeholder="尚未啟用")
-                            st.text_input("傳真電話", value="", disabled=True, placeholder="尚未啟用")
+                            st.markdown("<br><br>", unsafe_allow_html=True) # 佔位對齊
 
-                        edit_email = st.text_input("EMAIL", value=cemail if cemail else "")
                         edit_addr = st.text_input("地  址 *", value=caddr if caddr else "")
-                        edit_pref = st.text_input("備  註", value=cpref if cpref else "", placeholder="例：只吃無糖、全素、需代收")
+                        
+                        # 🌟 備註改為大區塊 text_area
+                        edit_pref = st.text_area("備註 (客戶習慣/特殊需求)", value=cpref if cpref else "", placeholder="例：只吃無糖、全素、需代收")
 
                         st.markdown("---")
                         st.markdown("##### 🎁 送禮專用 / 第二收件人 (選填)")
@@ -498,7 +483,8 @@ with tab1:
                             if not edit_name or not edit_phone or not edit_addr:
                                 st.error("姓名、主要手機與地址不可為空！")
                             else:
-                                update_customer_db(cid, edit_code, edit_name, edit_gender, edit_id_card, edit_phone, edit_phone_bak, edit_tel, edit_email, edit_addr, edit_r2_name, edit_r2_phone, edit_r2_addr, edit_pref, edit_source)
+                                # 保持背景資料庫不變，未顯示的欄位填回原本的值
+                                update_customer_db(cid, edit_code, edit_name, edit_gender, edit_id_card, edit_phone, edit_phone_bak, edit_tel, cemail, edit_addr, edit_r2_name, edit_r2_phone, edit_r2_addr, edit_pref, csource)
                                 st.success(f"✅ 客戶【{edit_name}】資料已成功更新！")
                                 st.rerun()
                     st.markdown('</div>', unsafe_allow_html=True)
@@ -642,7 +628,7 @@ with tab2:
             n_source = st.selectbox("顧客來源 (廣告追蹤) *", SOURCES_LIST)
 
         n_addr = st.text_input("常用收件地址 (本人) *")
-        n_pref = st.text_input("飲食偏好 / 客戶備註", placeholder="例：只吃無糖、全素、需代收")
+        n_pref = st.text_area("備註 (客戶習慣/特殊需求)", placeholder="例：只吃無糖、全素、需代收")
 
         st.markdown("##### 🎁 【送禮專用 / 第二收件人】資料 (選填)")
         nr2_1, nr2_2 = st.columns(2)
@@ -699,76 +685,81 @@ with tab2:
                 st.rerun()
 
 # ==========================================
-# TAB 3: 歷史訂購紀錄
+# TAB 3: 歷史訂購紀錄 (🌟 同步升級為直接展開版)
 # ==========================================
 with tab3:
-    col_t3_title, col_t3_search = st.columns([1, 1])
-    with col_t3_title:
-        st.subheader("👤 客戶檔案 與 歷史訂購紀錄")
-    with col_t3_search:
-        t3_search = st.text_input("🔍 搜尋客戶 (請輸入姓名、手機或代號)：", key="tab3_search").strip()
-
-    df_cache = get_cached_customers_df()
-    if t3_search:
-        matched_t3 = search_customers_fast(t3_search)
-        if matched_t3:
-            c_opts = {f"[{c[1] if str(c[1]).strip() else '待查'}] {c[2]} ({c[5]})": c[0] for c in matched_t3}
-        else:
-            c_opts = {}
-    else:
-        c_opts = {f"[{row['customer_code']}] {row['name']} ({row['phone']})": row['customer_id'] for _, row in df_cache.iterrows()}
-
-    if c_opts:
-        sel_label = st.selectbox("選擇要檢視或編輯的客戶：", list(c_opts.keys()), key="timeline_select_cust")
-        sel_cid = c_opts[sel_label]
+    col_left_spacer_t3, col_main_center_t3, col_right_spacer_t3 = st.columns([1, 4, 1])
+    
+    with col_main_center_t3:
+        st.markdown('<div class="search-header-box"><h3 style="margin:0; color:#2d3748;">👤 歷史訂單紀錄查詢</h3></div>', unsafe_allow_html=True)
+        st.markdown('<div class="search-content-box">', unsafe_allow_html=True)
         
-        cust = get_customer_by_id(sel_cid)
-        h_df = get_customer_history(sel_cid)
+        t3_search = st.text_input("🔍 搜尋客戶 (請輸入姓名、手機或代號)：", key="tab3_search").strip()
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        if cust:
-            cid = cust['customer_id']
-            ccode = str(cust['customer_code']).strip() if pd.notna(cust['customer_code']) else ""
-            cname = cust['name']
-            cgender = cust['gender']
-            cid_card = cust['id_card']
-            cphone = cust['phone']
-            cphone_bak = cust['phone_backup']
-            ctel = cust['tel']
-            cemail = cust['email']
-            caddr = cust['address']
-            cr2_name = cust['recipient2_name']
-            cr2_phone = cust['recipient2_phone']
-            cr2_addr = cust['recipient2_address']
-            cpref = cust['dietary_preference']
-            csource = cust.get('customer_source') or "未指定 / 自然流量"
+        df_cache = get_cached_customers_df()
+        if t3_search:
+            matched_t3 = search_customers_fast(t3_search)
+            if matched_t3:
+                c_opts = {f"[{c[1] if str(c[1]).strip() else '待查'}] {c[2]} ({c[5]})": c[0] for c in matched_t3}
+            else:
+                c_opts = {}
+        else:
+            c_opts = {f"[{row['customer_code']}] {row['name']} ({row['phone']})": row['customer_id'] for _, row in df_cache.iterrows()}
 
-            m1, m2 = st.columns(2)
-            m1.metric("累積購買次數", f"{len(h_df)} 次")
-            m2.metric("累積消費金額", f"NT$ {h_df['amount'].sum():,}")
+        if c_opts:
+            sel_label = st.selectbox("選擇要檢視的客戶：", list(c_opts.keys()), key="timeline_select_cust")
+            sel_cid = c_opts[sel_label]
+            
+            cust = get_customer_by_id(sel_cid)
+            h_df = get_customer_history(sel_cid)
 
-            with st.expander(f"✏️ 點擊展開／收合【{cname}】的基本資料與收件人設定", expanded=True):
+            if cust:
+                cid = cust['customer_id']
+                ccode = str(cust['customer_code']).strip() if pd.notna(cust['customer_code']) else ""
+                cname = cust['name']
+                cgender = cust['gender']
+                cid_card = cust['id_card']
+                cphone = cust['phone']
+                cphone_bak = cust['phone_backup']
+                ctel = cust['tel']
+                cemail = cust['email']
+                caddr = cust['address']
+                cr2_name = cust['recipient2_name']
+                cr2_phone = cust['recipient2_phone']
+                cr2_addr = cust['recipient2_address']
+                cpref = cust['dietary_preference']
+                csource = cust.get('customer_source') or "未指定 / 自然流量"
+
+                m1, m2 = st.columns(2)
+                m1.metric("累積購買次數", f"{len(h_df)} 次")
+                m2.metric("累積消費金額", f"NT$ {h_df['amount'].sum():,}")
+
+                # 🌟 移除 expander，直接顯示與 Tab 1 相同的編輯版面
+                st.markdown('<div class="edit-header-box"><h3 style="margin:0; color:#2c5282;">✏️ 基本資料編輯</h3></div>', unsafe_allow_html=True)
+                st.markdown('<div class="edit-content-box">', unsafe_allow_html=True)
+                
                 with st.form(key=f"edit_cust_form_tab3_{cid}"):
-                    st.markdown("##### 👤 本人資料與常用地址")
-                    tc1, tc2, tc3 = st.columns(3)
-                    with tc1:
+                    tc_left, tc_right = st.columns(2)
+                    
+                    with tc_left:
                         next_avail_t3 = get_next_crm_code()
                         code_label_t3 = "客戶代號" if ccode else f"客戶代號 (系統建議新號：{next_avail_t3})"
                         t_code = st.text_input(code_label_t3, value=ccode)
+                        t_name = st.text_input("姓  名 *", value=cname if cname else "")
+                        t_phone = st.text_input("行 動 (1) *", value=cphone if cphone else "")
+                        t_tel = st.text_input("電 話 (1)", value=ctel if ctel else "")
                         
-                        t_name = st.text_input("客戶姓名 *", value=cname if cname else "")
-                        t_gender = st.selectbox("性別", ["女", "男", "其他"], index=0 if cgender == "女" else (1 if cgender == "男" else 2))
-                    with tc2:
-                        t_phone = st.text_input("主要手機 *", value=cphone if cphone else "")
-                        t_phone_bak = st.text_input("備用手機", value=cphone_bak if cphone_bak else "")
-                        t_tel = st.text_input("市話電話", value=ctel if ctel else "")
-                    with tc3:
+                    with tc_right:
                         t_id_card = st.text_input("身分證號 / 統編", value=cid_card if cid_card else "")
-                        t_email = st.text_input("EMAIL", value=cemail if cemail else "")
-                        t_source = st.selectbox("顧客來源 (廣告追蹤)", SOURCES_LIST, index=get_source_idx(csource))
+                        t_gender = st.selectbox("性  別", ["女", "男", "其他"], index=0 if cgender == "女" else (1 if cgender == "男" else 2))
+                        t_phone_bak = st.text_input("行 動 (2)", value=cphone_bak if cphone_bak else "")
+                        st.markdown("<br><br>", unsafe_allow_html=True) # 佔位對齊
 
-                    t_addr = st.text_input("常用收件地址 (本人) *", value=caddr if caddr else "")
-                    t_pref = st.text_input("飲食偏好 / 客戶備註", value=cpref if cpref else "")
+                    t_addr = st.text_input("地  址 *", value=caddr if caddr else "")
+                    t_pref = st.text_area("備註 (客戶習慣/特殊需求)", value=cpref if cpref else "")
 
+                    st.markdown("---")
                     st.markdown("##### 🎁 送禮 / 第二收件人")
                     tr2_1, tr2_2 = st.columns(2)
                     with tr2_1:
@@ -777,126 +768,127 @@ with tab3:
                         t_r2_phone = st.text_input("第二收件人手機 (送禮電話)", value=cr2_phone if cr2_phone else "")
                     t_r2_addr = st.text_input("第二收件地址 (送禮地址)", value=cr2_addr if cr2_addr else "")
 
-                    t_save_btn = st.form_submit_button("💾 儲存並更新客戶基本資料")
+                    t_save_btn = st.form_submit_button("💾 儲存並更新客戶基本資料", use_container_width=True)
                     if t_save_btn:
-                        update_customer_db(cid, t_code, t_name, t_gender, t_id_card, t_phone, t_phone_bak, t_tel, t_email, t_addr, t_r2_name, t_r2_phone, t_r2_addr, t_pref, t_source)
+                        update_customer_db(cid, t_code, t_name, t_gender, t_id_card, t_phone, t_phone_bak, t_tel, cemail, t_addr, t_r2_name, t_r2_phone, t_r2_addr, t_pref, csource)
                         st.success("✅ 客戶資料已同步更新！")
                         st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
 
-            with st.expander("⚠️ 危險操作區：刪除此會員帳號", expanded=False):
-                st.warning("若此會員為重複建檔的幽靈帳號，確認後可點擊下方按鈕將其永久刪除（包含歷史訂單）。")
-                del_cust_chk_t3 = st.checkbox(f"我確定要刪除客戶 【{cname}】", key=f"chk_del_cust_t3_{cid}")
-                if del_cust_chk_t3:
-                    if st.button(f"🚨 確認永久刪除此會員", key=f"btn_del_cust_t3_{cid}", type="primary"):
-                        delete_customer(cid)
-                        st.success(f"✅ 已成功刪除會員 【{cname}】！")
-                        st.rerun()
+                with st.expander("⚠️ 危險操作區：刪除此會員帳號", expanded=False):
+                    st.warning("若此會員為重複建檔的幽靈帳號，確認後可點擊下方按鈕將其永久刪除（包含歷史訂單）。")
+                    del_cust_chk_t3 = st.checkbox(f"我確定要刪除客戶 【{cname}】", key=f"chk_del_cust_t3_{cid}")
+                    if del_cust_chk_t3:
+                        if st.button(f"🚨 確認永久刪除此會員", key=f"btn_del_cust_t3_{cid}", type="primary"):
+                            delete_customer(cid)
+                            st.success(f"✅ 已成功刪除會員 【{cname}】！")
+                            st.rerun()
 
-            with st.expander("📞 電訪追蹤紀錄與下次提醒（點擊展開/收合）", expanded=False):
-                st.markdown("##### ➕ 新增一通電訪紀錄")
-                with st.form(key=f"tele_form_tab3_{cid}", clear_on_submit=True):
-                    tc_col1, tc_col2 = st.columns(2)
-                    with tc_col1:
-                        call_status = st.selectbox("撥打狀態", ["成功下單", "考慮中", "無人接聽", "拒絕/空號"])
-                        next_date = st.date_input("下次提醒再訪日 (選填)", value=None)
-                    with tc_col2:
-                        call_notes = st.text_area("電訪筆記與備註", placeholder="例：詢問燕麥奶庫存狀況，表示下週回電。")
+                with st.expander("📞 電訪追蹤紀錄與下次提醒（點擊展開/收合）", expanded=False):
+                    st.markdown("##### ➕ 新增一通電訪紀錄")
+                    with st.form(key=f"tele_form_tab3_{cid}", clear_on_submit=True):
+                        tc_col1, tc_col2 = st.columns(2)
+                        with tc_col1:
+                            call_status = st.selectbox("撥打狀態", ["成功下單", "考慮中", "無人接聽", "拒絕/空號"])
+                            next_date = st.date_input("下次提醒再訪日 (選填)", value=None)
+                        with tc_col2:
+                            call_notes = st.text_area("電訪筆記與備註", placeholder="例：詢問燕麥奶庫存狀況，表示下週回電。")
 
-                    save_call_btn = st.form_submit_button("📞 儲存這通電訪紀錄")
-                    if save_call_btn:
-                        execute_query("""
-                            INSERT INTO telemarketing_logs (customer_id, agent_name, call_status, call_notes, next_followup_date)
-                            VALUES (:cid, :agent, :status, :notes, :ndate)
-                        """, {
-                            "cid": cid,
-                            "agent": st.session_state.username,
-                            "status": call_status,
-                            "notes": call_notes,
-                            "ndate": next_date if next_date else None
-                        })
-                        st.success("✅ 電訪紀錄已成功儲存！")
-                        st.rerun()
+                        save_call_btn = st.form_submit_button("📞 儲存這通電訪紀錄")
+                        if save_call_btn:
+                            execute_query("""
+                                INSERT INTO telemarketing_logs (customer_id, agent_name, call_status, call_notes, next_followup_date)
+                                VALUES (:cid, :agent, :status, :notes, :ndate)
+                            """, {
+                                "cid": cid,
+                                "agent": st.session_state.username,
+                                "status": call_status,
+                                "notes": call_notes,
+                                "ndate": next_date if next_date else None
+                            })
+                            st.success("✅ 電訪紀錄已成功儲存！")
+                            st.rerun()
 
-                past_logs = read_query("SELECT log_id, agent_name, call_status, call_notes, next_followup_date, created_at FROM telemarketing_logs WHERE customer_id = :cid ORDER BY created_at DESC", {"cid": cid})
-                if not past_logs.empty:
-                    st.markdown("---")
-                    st.markdown("##### ✏️ 歷史電訪紀錄（展開可直接修改）")
-                    for _, plog in past_logs.iterrows():
-                        log_id = plog['log_id']
-                        nd_display = str(plog['next_followup_date']) if pd.notna(plog['next_followup_date']) else "無"
-                        
-                        with st.expander(f"🕒 [{str(plog['created_at'])[:16]}] 專員: {plog['agent_name']} | 狀態: {plog['call_status']} | 提醒: {nd_display}", expanded=False):
-                            with st.form(key=f"edit_tele_form_t3_{cid}_{log_id}"):
-                                e_t1, e_t2 = st.columns(2)
-                                with e_t1:
-                                    e_status = st.selectbox("撥打狀態", ["成功下單", "考慮中", "無人接聽", "拒絕/空號"], index=["成功下單", "考慮中", "無人接聽", "拒絕/空號"].index(plog['call_status']) if plog['call_status'] in ["成功下單", "考慮中", "無人接聽", "拒絕/空號"] else 0)
-                                    try:
-                                        default_nd = datetime.strptime(str(plog['next_followup_date']), "%Y-%m-%d").date() if pd.notna(plog['next_followup_date']) else None
-                                    except:
-                                        default_nd = None
-                                    e_ndate = st.date_input("下次提醒再訪日", value=default_nd)
-                                with e_t2:
-                                    e_notes = st.text_area("電訪筆記", value=str(plog['call_notes']) if pd.notna(plog['call_notes']) else "")
+                    past_logs = read_query("SELECT log_id, agent_name, call_status, call_notes, next_followup_date, created_at FROM telemarketing_logs WHERE customer_id = :cid ORDER BY created_at DESC", {"cid": cid})
+                    if not past_logs.empty:
+                        st.markdown("---")
+                        st.markdown("##### ✏️ 歷史電訪紀錄（展開可直接修改）")
+                        for _, plog in past_logs.iterrows():
+                            log_id = plog['log_id']
+                            nd_display = str(plog['next_followup_date']) if pd.notna(plog['next_followup_date']) else "無"
+                            
+                            with st.expander(f"🕒 [{str(plog['created_at'])[:16]}] 專員: {plog['agent_name']} | 狀態: {plog['call_status']} | 提醒: {nd_display}", expanded=False):
+                                with st.form(key=f"edit_tele_form_t3_{cid}_{log_id}"):
+                                    e_t1, e_t2 = st.columns(2)
+                                    with e_t1:
+                                        e_status = st.selectbox("撥打狀態", ["成功下單", "考慮中", "無人接聽", "拒絕/空號"], index=["成功下單", "考慮中", "無人接聽", "拒絕/空號"].index(plog['call_status']) if plog['call_status'] in ["成功下單", "考慮中", "無人接聽", "拒絕/空號"] else 0)
+                                        try:
+                                            default_nd = datetime.strptime(str(plog['next_followup_date']), "%Y-%m-%d").date() if pd.notna(plog['next_followup_date']) else None
+                                        except:
+                                            default_nd = None
+                                        e_ndate = st.date_input("下次提醒再訪日", value=default_nd)
+                                    with e_t2:
+                                        e_notes = st.text_area("電訪筆記", value=str(plog['call_notes']) if pd.notna(plog['call_notes']) else "")
 
-                                e_save_btn = st.form_submit_button("💾 儲存此筆電訪修改")
-                                if e_save_btn:
-                                    execute_query("""
-                                        UPDATE telemarketing_logs 
-                                        SET call_status = :status, call_notes = :notes, next_followup_date = :ndate
-                                        WHERE log_id = :lid
-                                    """, {
-                                        "status": e_status,
-                                        "notes": e_notes,
-                                        "ndate": e_ndate if e_ndate else None,
-                                        "lid": log_id
-                                    })
-                                    st.success("✅ 電訪紀錄修改成功！")
-                                    st.rerun()
+                                    e_save_btn = st.form_submit_button("💾 儲存此筆電訪修改")
+                                    if e_save_btn:
+                                        execute_query("""
+                                            UPDATE telemarketing_logs 
+                                            SET call_status = :status, call_notes = :notes, next_followup_date = :ndate
+                                            WHERE log_id = :lid
+                                        """, {
+                                            "status": e_status,
+                                            "notes": e_notes,
+                                            "ndate": e_ndate if e_ndate else None,
+                                            "lid": log_id
+                                        })
+                                        st.success("✅ 電訪紀錄修改成功！")
+                                        st.rerun()
 
-                            del_tele_chk = st.checkbox(f"⚠️ 確認刪除此筆電訪紀錄 (#{log_id})？", key=f"del_tele_chk_t3_{log_id}")
-                            if del_tele_chk:
-                                if st.button("🚨 確認刪除電訪", key=f"btn_del_tele_t3_{log_id}"):
-                                    execute_query("DELETE FROM telemarketing_logs WHERE log_id = :lid", {"lid": log_id})
-                                    st.success("✅ 已刪除該筆電訪紀錄！")
-                                    st.rerun()
+                                del_tele_chk = st.checkbox(f"⚠️ 確認刪除此筆電訪紀錄 (#{log_id})？", key=f"del_tele_chk_t3_{log_id}")
+                                if del_tele_chk:
+                                    if st.button("🚨 確認刪除電訪", key=f"btn_del_tele_t3_{log_id}"):
+                                        execute_query("DELETE FROM telemarketing_logs WHERE log_id = :lid", {"lid": log_id})
+                                        st.success("✅ 已刪除該筆電訪紀錄！")
+                                        st.rerun()
 
-            st.markdown("---")
-            st.subheader(f"📦 為【{cname}】新增訂單")
-            with st.form(key=f"add_order_for_tab3_{cid}", clear_on_submit=True):
-                oc1, oc2, oc3 = st.columns(3)
-                with oc1:
-                    new_order_chan = st.selectbox("購買管道 *", ["電話訂購 (B)", "官網 (A)", "LINE訂購", "其他"])
-                    new_order_date = st.date_input("訂購日期 *", value=datetime.today())
-                with oc2:
-                    new_order_prod = st.text_input("訂購商品名稱與規格 *", placeholder="例：有機三色藜麥片 3罐組")
-                    new_order_amt = st.number_input("訂單金額 (NT$)", min_value=0, step=50, value=0)
-                with oc3:
-                    new_order_status = st.selectbox("訂單狀態", ["已接單/待出貨", "已出貨", "已完成", "售後追蹤中", "取消/退貨"])
-                    new_order_notes = st.text_input("本次訂單備註", placeholder="例：送禮給第二收件人")
+                st.markdown("---")
+                st.subheader(f"📦 為【{cname}】新增訂單")
+                with st.form(key=f"add_order_for_tab3_{cid}", clear_on_submit=True):
+                    oc1, oc2, oc3 = st.columns(3)
+                    with oc1:
+                        new_order_chan = st.selectbox("購買管道 *", ["電話訂購 (B)", "官網 (A)", "LINE訂購", "其他"])
+                        new_order_date = st.date_input("訂購日期 *", value=datetime.today())
+                    with oc2:
+                        new_order_prod = st.text_input("訂購商品名稱與規格 *", placeholder="例：有機三色藜麥片 3罐組")
+                        new_order_amt = st.number_input("訂單金額 (NT$)", min_value=0, step=50, value=0)
+                    with oc3:
+                        new_order_status = st.selectbox("訂單狀態", ["已接單/待出貨", "已出貨", "已完成", "售後追蹤中", "取消/退貨"])
+                        new_order_notes = st.text_input("本次訂單備註", placeholder="例：送禮給第二收件人")
 
-                add_order_btn = st.form_submit_button("➕ 建立這筆新訂單")
-                if add_order_btn:
-                    if not new_order_prod:
-                        st.error("請填寫訂購商品！")
-                    else:
-                        chan_clean = "電話訂購" if "電話" in new_order_chan else ("官網" if "官網" in new_order_chan else new_order_chan)
-                        execute_query("""
-                            INSERT INTO orders (customer_id, channel, product, amount, order_date, raw_date_code, status, order_notes)
-                            VALUES (:cid, :chan, :prod, :amt, :odate, '', :status, :notes)
-                        """, {
-                            "cid": cid, "chan": chan_clean, "prod": new_order_prod,
-                            "amt": new_order_amt, "odate": str(new_order_date),
-                            "status": new_order_status, "notes": new_order_notes
-                        })
-                        st.success(f"🎉 已成功為【{cname}】新增訂單！")
-                        st.rerun()
+                    add_order_btn = st.form_submit_button("➕ 建立這筆新訂單")
+                    if add_order_btn:
+                        if not new_order_prod:
+                            st.error("請填寫訂購商品！")
+                        else:
+                            chan_clean = "電話訂購" if "電話" in new_order_chan else ("官網" if "官網" in new_order_chan else new_order_chan)
+                            execute_query("""
+                                INSERT INTO orders (customer_id, channel, product, amount, order_date, raw_date_code, status, order_notes)
+                                VALUES (:cid, :chan, :prod, :amt, :odate, '', :status, :notes)
+                            """, {
+                                "cid": cid, "chan": chan_clean, "prod": new_order_prod,
+                                "amt": new_order_amt, "odate": str(new_order_date),
+                                "status": new_order_status, "notes": new_order_notes
+                            })
+                            st.success(f"🎉 已成功為【{cname}】新增訂單！")
+                            st.rerun()
 
-            st.markdown("---")
-            st.markdown("#### 📜 歷史購買紀錄 (點擊展開檢視/編輯/刪除)")
-            with st.expander(f"📁 點擊展開【{cname}】的 {len(h_df)} 筆歷史訂單明細", expanded=False):
-                render_editable_orders(h_df, "tab3")
-    else:
-        st.info("⚠️ 查無符合條件的客戶。")
+                st.markdown("---")
+                st.markdown("#### 📜 歷史購買紀錄 (點擊展開檢視/編輯/刪除)")
+                with st.expander(f"📁 點擊展開【{cname}】的 {len(h_df)} 筆歷史訂單明細", expanded=False):
+                    render_editable_orders(h_df, "tab3")
+        else:
+            st.info("⚠️ 查無符合條件的客戶。")
 
 # ==========================================
 # 🌟 Python 處理歷史訂單匯出格式函數 (西元轉民國, 附帶管道代碼)
@@ -912,7 +904,7 @@ def format_export_order(dstr, channel_prefix):
         return ""
 
 # ==========================================
-# TAB 4: 客戶名冊總表 (🌟 新增 3 張報表獨立分流匯出)
+# TAB 4: 客戶名冊總表
 # ==========================================
 with tab4:
     st.subheader("📊 客戶名冊總表")
@@ -922,7 +914,6 @@ with tab4:
         show_pending_only = st.checkbox("🔍 只顯示「無代號 / 待確認」的名單")
         tab4_search = st.text_input("🔍 在總表中搜尋 (請輸入姓名、手機號碼或客戶代號)：", key="tab4_search").strip()
 
-    # 🚀 在 SQL 中以 oldest 優先 (ASC) 分別抓取官網與電話的訂單日期
     df_all = read_query("""
         SELECT 
             c.customer_id,
@@ -963,19 +954,16 @@ with tab4:
 
         st.markdown("💡 **小提示：此總表為純檢視模式，載入最為快速。若需刪除重複會員或編輯補上代號，請直接切換至「🔍 舊客速查與編輯」頁面操作。**")
 
-        # 🚀 前台顯示：隱藏 歷史訂購明細，保持版面乾淨
         display_df = df_filtered.drop(columns=["所有訂購明細", "官網訂單", "電話訂單", "customer_id"], errors='ignore')
         st.dataframe(display_df, use_container_width=True, hide_index=True)
 
         st.markdown("---")
         
-        # 🚀 報表匯出：產生 3 張 Sheet (綜合、官網專屬、電話專屬)
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             
             base_cols = ["客戶代號", "姓名", "顧客來源", "性別", "主要手機", "備用手機", "市話", "常用地址", "最後購買管道", "總購買次數", "歷史消費金額", "最後購買日"]
             
-            # --- Sheet 1: 綜合總表 ---
             export_all = df_filtered[base_cols + ["所有訂購明細"]].copy()
             export_all["所有訂購明細"] = export_all["所有訂購明細"].fillna("")
             split_all = export_all["所有訂購明細"].str.split(r"\|\|\|", regex=True, expand=True)
@@ -988,7 +976,6 @@ with tab4:
                 export_all = export_all.drop(columns=["所有訂購明細"])
             export_all.to_excel(writer, index=False, sheet_name='綜合名單總表')
 
-            # --- Sheet 2: 官網客戶專屬名單 ---
             export_web = df_filtered[df_filtered["官網訂單"].notna()][base_cols + ["官網訂單"]].copy()
             split_web = export_web["官網訂單"].str.split(r"\|\|\|", regex=True, expand=True)
             if not split_web.empty and split_web.shape[1] > 0:
@@ -1000,7 +987,6 @@ with tab4:
                 export_web = export_web.drop(columns=["官網訂單"])
             export_web.to_excel(writer, index=False, sheet_name='官網客戶名單')
 
-            # --- Sheet 3: 電話客戶專屬名單 (電銷用) ---
             export_phone = df_filtered[df_filtered["電話訂單"].notna()][base_cols + ["電話訂單"]].copy()
             split_phone = export_phone["電話訂單"].str.split(r"\|\|\|", regex=True, expand=True)
             if not split_phone.empty and split_phone.shape[1] > 0:
@@ -1174,7 +1160,7 @@ with tab6:
 # ==========================================
 with tab5:
     st.subheader("📥 智慧匯入中心（自動隔離待查名單與去重）")
-    st.info("💡 若比對不到會員手機，系統不會自動配發 CRM 新代號，而是歸入「待確認名單」供您後續比對，絕不產生幽靈編號！")
+    st.info("💡 支援官網訂單報表與舊名單上傳。系統會自動依「手機號碼」防重複建檔。")
     
     uploaded_file = st.file_uploader("上傳 Excel 檔案（.xlsx）", type=["xlsx", "xls"], key="excel_uploader_tab5")
 

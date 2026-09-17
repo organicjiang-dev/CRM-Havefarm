@@ -26,37 +26,53 @@ ORDER_SOURCES = [
     "其他"
 ]
 
-# 🚨 採用真空壓縮 CSS，加入淺藍色半透明標籤樣式
+# 🚨 採用真空壓縮 CSS，字體放大與按鈕跳色設計
 st.markdown("""
 <style>
-/* 縮小字體與整體寬度，提升資訊密度 */
-html, body, [class*="css"] { font-size: 15px !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", sans-serif !important; color: #2d3748 !important; }
+/* 🌟 1. 字體全面放大，提升舒適度 */
+html, body, [class*="css"] { font-size: 18px !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", sans-serif !important; color: #2d3748 !important; }
 
 /* 頂部分頁導覽列 (Tabs) */
 div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { gap: 4px !important; padding-top: 10px !important; padding-bottom: 5px !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"] { font-size: 16px !important; background-color: #f8fafc !important; border-radius: 4px 4px 0 0 !important; border: 1px solid #cbd5e0 !important; border-bottom: none !important; padding: 8px 16px !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"] { font-size: 18px !important; background-color: #f8fafc !important; border-radius: 4px 4px 0 0 !important; border: 1px solid #cbd5e0 !important; border-bottom: none !important; padding: 10px 20px !important; }
 div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] { border-top: 4px solid #e53e3e !important; background-color: #ffffff !important; }
 
 /* 標題與文字 */
-h1 { font-size: 26px !important; font-weight: 800 !important; margin-bottom: 10px !important; }
-h3 { font-size: 20px !important; font-weight: 700 !important; margin-top: 5px !important; margin-bottom: 10px !important; color: #2b6cb0 !important; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; }
+h1 { font-size: 30px !important; font-weight: 800 !important; margin-bottom: 10px !important; }
+h3 { font-size: 22px !important; font-weight: 700 !important; margin-top: 5px !important; margin-bottom: 10px !important; color: #2b6cb0 !important; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; }
 
-/* 輸入框精緻緊湊化 */
-input[type="text"], input[type="password"], input[type="number"], select, div[data-baseweb="select"] > div { font-size: 15px !important; min-height: 38px !important; border-radius: 4px !important; border: 1px solid #a0aec0 !important; padding: 4px 10px !important; background-color: #ffffff !important; }
-div[data-testid="stInputValue"] { min-height: 38px !important; }
-textarea { font-size: 15px !important; min-height: 120px !important; line-height: 1.5 !important; border: 1px solid #a0aec0 !important; border-radius: 4px !important; }
-.stButton > button { min-height: 40px !important; font-size: 16px !important; font-weight: bold !important; border-radius: 4px !important; border: 1px solid #cbd5e0 !important; }
+/* 輸入框放大緊湊化 */
+input[type="text"], input[type="password"], input[type="number"], select, div[data-baseweb="select"] > div { font-size: 18px !important; min-height: 45px !important; border-radius: 4px !important; border: 1px solid #a0aec0 !important; padding: 6px 12px !important; background-color: #ffffff !important; color: #1a202c !important; }
+div[data-testid="stInputValue"] { min-height: 45px !important; }
+textarea { font-size: 18px !important; min-height: 120px !important; line-height: 1.5 !important; border: 1px solid #a0aec0 !important; border-radius: 4px !important; }
 
-/* 🌟 核心：水平排版的 Label 樣式 (淺藍色半透明背景塊) */
+/* 一般按鈕 */
+.stButton > button { min-height: 45px !important; font-size: 18px !important; font-weight: bold !important; border-radius: 4px !important; border: 1px solid #cbd5e0 !important; }
+
+/* 🌟 4. 儲存按鈕跳色設計 (淺藍半透明背景 + 藍色文字) */
+button[kind="primary"] {
+    background-color: rgba(190, 227, 248, 0.6) !important; /* 淺藍色半透明 */
+    color: #2b6cb0 !important; /* 深藍色文字 */
+    border: 2px solid #90cdf4 !important;
+    font-size: 18px !important;
+    font-weight: 900 !important;
+}
+button[kind="primary"]:hover {
+    background-color: rgba(190, 227, 248, 0.9) !important;
+    border: 2px solid #63b3ed !important;
+    color: #1e3a8a !important;
+}
+
+/* 水平排版的 Label 樣式 (淺藍色半透明背景塊) */
 .lbl { 
-    background-color: rgba(190, 227, 248, 0.5); /* 淺藍色半透明 */
-    color: #2a4365; /* 深藍字體 */
+    background-color: rgba(190, 227, 248, 0.5); 
+    color: #2a4365; 
     font-weight: 700; 
-    font-size: 15px; 
+    font-size: 16px; 
     text-align: center; 
     border: 1px solid #90cdf4;
     border-radius: 4px;
-    height: 38px;
+    height: 45px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -299,7 +315,7 @@ tab1, tab2, tab3, tab4, tab7, tab6, tab5 = st.tabs([
 ])
 
 # ==========================================
-# TAB 1: 舊客戶速查與編輯 (🌟 淺藍色塊標籤 + 移除多餘欄位)
+# TAB 1: 舊客戶速查與編輯 
 # ==========================================
 with tab1:
     col_left_spacer, col_main_center, col_right_spacer = st.columns([1.5, 7, 1.5])
@@ -359,31 +375,33 @@ with tab1:
                     with st.form(key=f"edit_cust_form_tab1_{cid}"):
                         st.markdown("### ✏️ 基本資料編輯")
                         
-                        # Row 1
+                        # Row 1 (代號 / 統編)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">客戶代號</div>', unsafe_allow_html=True)
                         edit_code = c2.text_input("客戶代號", value=ccode, label_visibility="collapsed")
-                        c3.markdown('<div class="lbl">身分證號</div>', unsafe_allow_html=True)
-                        edit_id_card = c4.text_input("身分證號", value=cid_card, label_visibility="collapsed")
+                        c3.markdown('<div class="lbl">統編</div>', unsafe_allow_html=True)
+                        edit_id_card = c4.text_input("統編", value=cid_card, label_visibility="collapsed")
                         
-                        # Row 2
+                        # Row 2 (姓名 / 性別)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">姓名 *</div>', unsafe_allow_html=True)
                         edit_name = c2.text_input("姓名", value=cname, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">性別</div>', unsafe_allow_html=True)
                         edit_gender = c4.selectbox("性別", ["女", "男", "其他"], index=0 if cgender == "女" else (1 if cgender == "男" else 2), label_visibility="collapsed")
                         
-                        # Row 3
+                        # Row 3 (手機 1 / 手機 2)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">手機 1 *</div>', unsafe_allow_html=True)
                         edit_phone = c2.text_input("手機 1", value=cphone, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">手機 2</div>', unsafe_allow_html=True)
                         edit_phone_bak = c4.text_input("手機 2", value=cphone_bak, label_visibility="collapsed")
                         
-                        # Row 4 (移除市話2的保留格子，讓右半邊留白)
-                        c1, c2, _ = st.columns([1.5, 3.5, 5])
+                        # Row 4 (市話 1 / 市話 2)
+                        c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">市話 1</div>', unsafe_allow_html=True)
                         edit_tel = c2.text_input("市話 1", value=ctel, label_visibility="collapsed")
+                        c3.markdown('<div class="lbl">市話 2</div>', unsafe_allow_html=True)
+                        edit_tel2 = c4.text_input("市話 2", value="", label_visibility="collapsed", placeholder="選填")
 
                         # Row 5 (地址)
                         ca1, ca2 = st.columns([1.5, 8.5])
@@ -408,13 +426,19 @@ with tab1:
                         edit_pref = cn2.text_area("備註", value=cpref, label_visibility="collapsed")
 
                         st.markdown("<br>", unsafe_allow_html=True)
-                        save_cust_btn = st.form_submit_button("💾 儲存並更新客戶資料", use_container_width=True)
+                        # 🌟 type="primary" 套用跳色的淺藍背景與藍字 CSS
+                        save_cust_btn = st.form_submit_button("💾 儲存並更新客戶資料", type="primary", use_container_width=True)
 
                         if save_cust_btn:
                             if not edit_name or not edit_phone or not edit_addr:
                                 st.error("姓名、手機 1 與地址不可為空！")
                             else:
-                                update_customer_db(cid, edit_code, edit_name, edit_gender, edit_id_card, edit_phone, edit_phone_bak, edit_tel, cemail, edit_addr, edit_r2_name, edit_r2_phone, edit_r2_addr, edit_pref, csource)
+                                # 自動將市話2串接存入資料庫
+                                final_tel = edit_tel.strip()
+                                if edit_tel2.strip():
+                                    final_tel += f" / {edit_tel2.strip()}"
+                                    
+                                update_customer_db(cid, edit_code, edit_name, edit_gender, edit_id_card, edit_phone, edit_phone_bak, final_tel, cemail, edit_addr, edit_r2_name, edit_r2_phone, edit_r2_addr, edit_pref, csource)
                                 st.success(f"✅ 更新成功！")
                                 st.rerun()
 
@@ -466,8 +490,8 @@ with tab2:
             c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
             c1.markdown('<div class="lbl">客戶代號</div>', unsafe_allow_html=True)
             n_code = c2.text_input("客戶代號", value=auto_code, label_visibility="collapsed")
-            c3.markdown('<div class="lbl">身分證號</div>', unsafe_allow_html=True)
-            n_id_card = c4.text_input("身分證號", label_visibility="collapsed")
+            c3.markdown('<div class="lbl">統編</div>', unsafe_allow_html=True)
+            n_id_card = c4.text_input("統編", label_visibility="collapsed")
             
             c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
             c1.markdown('<div class="lbl">姓名 *</div>', unsafe_allow_html=True)
@@ -481,9 +505,11 @@ with tab2:
             c3.markdown('<div class="lbl">手機 2</div>', unsafe_allow_html=True)
             n_phone_bak = c4.text_input("手機 2", label_visibility="collapsed")
             
-            c1, c2, _ = st.columns([1.5, 3.5, 5])
+            c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
             c1.markdown('<div class="lbl">市話 1</div>', unsafe_allow_html=True)
             n_tel = c2.text_input("市話 1", label_visibility="collapsed")
+            c3.markdown('<div class="lbl">市話 2</div>', unsafe_allow_html=True)
+            n_tel2 = c4.text_input("市話 2", label_visibility="collapsed")
 
             ca1, ca2 = st.columns([1.5, 8.5])
             ca1.markdown('<div class="lbl">地址 *</div>', unsafe_allow_html=True)
@@ -516,13 +542,17 @@ with tab2:
                 n_source = st.selectbox("訂單來源", ORDER_SOURCES)
 
             st.markdown("<br>", unsafe_allow_html=True)
-            submit_new_cust = st.form_submit_button("🚀 建立全新會員檔案", use_container_width=True)
+            # 🌟 type="primary" 套用跳色的淺藍背景與藍字 CSS
+            submit_new_cust = st.form_submit_button("🚀 建立全新會員檔案", type="primary", use_container_width=True)
 
             if submit_new_cust:
                 clean_np = clean_phone(n_phone)
                 if not n_name or not clean_np or not n_addr:
                     st.error("請填寫『姓名』、『手機 1』與『地址』！")
                 else:
+                    final_ntel = n_tel.strip()
+                    if n_tel2.strip(): final_ntel += f" / {n_tel2.strip()}"
+                        
                     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     res = execute_query("""
                         INSERT INTO customers (customer_id, customer_code, name, gender, id_card, phone, phone_backup, tel, email, 
@@ -532,7 +562,7 @@ with tab2:
                         RETURNING customer_id
                     """, {
                         "code": n_code, "name": n_name, "gender": n_gender, "id_card": n_id_card,
-                        "phone": clean_np, "phone_bak": n_phone_bak, "tel": n_tel,
+                        "phone": clean_np, "phone_bak": n_phone_bak, "tel": final_ntel,
                         "addr": n_addr, "r2_name": n_r2_name, "r2_phone": clean_phone(n_r2_phone),
                         "r2_addr": n_r2_addr, "pref": n_pref, "created_at": now_str
                     })
@@ -601,8 +631,8 @@ with tab3:
                     c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                     c1.markdown('<div class="lbl">客戶代號</div>', unsafe_allow_html=True)
                     t_code = c2.text_input("客戶代號", value=ccode, label_visibility="collapsed")
-                    c3.markdown('<div class="lbl">身分證號</div>', unsafe_allow_html=True)
-                    t_id_card = c4.text_input("身分證號", value=cid_card, label_visibility="collapsed")
+                    c3.markdown('<div class="lbl">統編</div>', unsafe_allow_html=True)
+                    t_id_card = c4.text_input("統編", value=cid_card, label_visibility="collapsed")
                     
                     c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                     c1.markdown('<div class="lbl">姓名 *</div>', unsafe_allow_html=True)
@@ -616,9 +646,11 @@ with tab3:
                     c3.markdown('<div class="lbl">手機 2</div>', unsafe_allow_html=True)
                     t_phone_bak = c4.text_input("手機 2", value=cphone_bak, label_visibility="collapsed")
                     
-                    c1, c2, _ = st.columns([1.5, 3.5, 5])
+                    c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                     c1.markdown('<div class="lbl">市話 1</div>', unsafe_allow_html=True)
                     t_tel = c2.text_input("市話 1", value=ctel, label_visibility="collapsed")
+                    c3.markdown('<div class="lbl">市話 2</div>', unsafe_allow_html=True)
+                    t_tel2 = c4.text_input("市話 2", value="", label_visibility="collapsed", placeholder="選填")
 
                     ca1, ca2 = st.columns([1.5, 8.5])
                     ca1.markdown('<div class="lbl">地址 *</div>', unsafe_allow_html=True)
@@ -639,10 +671,13 @@ with tab3:
                     t_pref = cn2.text_area("備註", value=cpref, label_visibility="collapsed")
 
                     st.markdown("<br>", unsafe_allow_html=True)
-                    t_save_btn = st.form_submit_button("💾 儲存並更新基本資料", use_container_width=True)
+                    # 🌟 type="primary" 套用跳色的淺藍背景與藍字 CSS
+                    t_save_btn = st.form_submit_button("💾 儲存並更新基本資料", type="primary", use_container_width=True)
 
                     if t_save_btn:
-                        update_customer_db(cid, t_code, t_name, t_gender, t_id_card, t_phone, t_phone_bak, t_tel, cemail, t_addr, t_r2_name, t_r2_phone, t_r2_addr, t_pref, csource)
+                        final_tel_t3 = t_tel.strip()
+                        if t_tel2.strip(): final_tel_t3 += f" / {t_tel2.strip()}"
+                        update_customer_db(cid, t_code, t_name, t_gender, t_id_card, t_phone, t_phone_bak, final_tel_t3, cemail, t_addr, t_r2_name, t_r2_phone, t_r2_addr, t_pref, csource)
                         st.success("✅ 更新成功！")
                         st.rerun()
 

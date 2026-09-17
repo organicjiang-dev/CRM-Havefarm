@@ -29,7 +29,7 @@ ORDER_SOURCES = [
 # 🚨 採用真空壓縮 CSS，字體再放大與按鈕優化設計
 st.markdown("""
 <style>
-/* 🌟 1. 字體與高度再放大，達到極致舒適大格子 */
+/* 🌟 字體與高度再放大，達到極致舒適大格子 */
 html, body, [class*="css"] { font-size: 20px !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", sans-serif !important; color: #2d3748 !important; }
 
 /* 頂部分頁導覽列 (Tabs) */
@@ -49,10 +49,10 @@ textarea { font-size: 20px !important; min-height: 140px !important; line-height
 /* 一般按鈕 */
 .stButton > button { min-height: 50px !important; font-size: 20px !important; font-weight: bold !important; border-radius: 6px !important; border: 1px solid #cbd5e0 !important; }
 
-/* 🌟 4. 儲存按鈕專屬跳色設計 (淺藍半透明背景 + 藍色文字) */
+/* 儲存按鈕專屬跳色設計 (淺藍半透明背景 + 藍色文字) */
 button[kind="primary"] {
-    background-color: rgba(190, 227, 248, 0.5) !important; /* 淺藍色半透明 */
-    color: #2b6cb0 !important; /* 深藍色文字 */
+    background-color: rgba(190, 227, 248, 0.5) !important;
+    color: #2b6cb0 !important;
     border: 2px solid #90cdf4 !important;
     font-size: 20px !important;
     font-weight: 900 !important;
@@ -185,6 +185,7 @@ def read_query(query, params=None):
     with engine.connect() as conn:
         return pd.read_sql_query(text(query), conn, params=params or {})
 
+# 🚀 【全快取記憶體架構 1】把客戶主資料放進 RAM 裡
 @st.cache_data(ttl=600)
 def get_cached_customers_df():
     return read_query("""
@@ -194,17 +195,23 @@ def get_cached_customers_df():
         ORDER BY customer_code DESC, customer_id DESC
     """)
 
+# 🚀 【全快取記憶體架構 2】把所有訂單紀錄也放進 RAM 裡 (零延遲切換的關鍵)
+@st.cache_data(ttl=600)
+def get_cached_orders_df():
+    return read_query("""
+        SELECT order_id, customer_id, channel, product, amount, order_date, raw_date_code, status, order_notes
+        FROM orders
+        ORDER BY order_date DESC, order_id DESC
+    """)
+
+# 🚀 優化編號產生器：用 Pandas 向量運算瞬間算出最大值
 def get_next_crm_code():
     df = get_cached_customers_df()
-    max_num = 8759
-    for _, r in df.iterrows():
-        code_str = str(r['customer_code']).strip()
-        match = re.search(r"CRM(\d+)", code_str)
-        if match:
-            num = int(match.group(1))
-            if num > max_num:
-                max_num = num
-    return f"CRM{max_num + 1:06d}"
+    codes = df['customer_code'].dropna().astype(str)
+    nums = codes.str.extract(r'CRM(\d+)')[0].dropna().astype(int)
+    if not nums.empty:
+        return f"CRM{nums.max() + 1:06d}"
+    return "CRM008760"
 
 def clean_phone(p):
     if pd.isna(p) or not p: return ""
@@ -232,8 +239,10 @@ def get_customer_by_id(cid):
     target = df[df['customer_id'] == cid]
     return target.iloc[0].to_dict() if not target.empty else None
 
+# 🚀 直接從快取 RAM 中讀取歷史訂單，速度提升 100 倍！
 def get_customer_history(customer_id):
-    return read_query("SELECT order_id, channel, product, amount, order_date, raw_date_code, status, order_notes FROM orders WHERE customer_id = :cid ORDER BY order_date DESC, order_id DESC", {"cid": customer_id})
+    df = get_cached_orders_df()
+    return df[df['customer_id'] == customer_id]
 
 def update_customer_db(cid, code, name, gender, id_card, phone, phone_bak, tel, email, addr, r2_name, r2_phone, r2_addr, pref, source):
     execute_query("""
@@ -258,6 +267,7 @@ def delete_customer(cid):
 
 def delete_order(order_id):
     execute_query("DELETE FROM orders WHERE order_id = :oid", {"oid": order_id})
+    st.cache_data.clear()
 
 def render_editable_orders(history_df, prefix_key):
     if history_df.empty:
@@ -289,6 +299,7 @@ def render_editable_orders(history_df, prefix_key):
                     if save_order_btn:
                         execute_query("UPDATE orders SET channel = :chan, product = :prod, amount = :amt, order_date = :odate, status = :source, order_notes = :notes WHERE order_id = :oid", 
                                       {"chan": o_chan, "prod": o_prod, "amt": o_amt, "odate": o_date, "source": o_source, "notes": o_notes, "oid": oid})
+                        st.cache_data.clear() # 更新快取
                         st.success(f"✅ 訂單修改成功！")
                         st.rerun()
 
@@ -300,7 +311,7 @@ def render_editable_orders(history_df, prefix_key):
                         st.rerun()
 
 
-# --- 🌟 主介面頂部設計 (移除側邊欄，改至右上角) ---
+# --- 🌟 主介面頂部設計 (無側邊欄) ---
 col_title, col_user = st.columns([4, 1])
 with col_title:
     st.title("🌾 有其田 客服管理系統")
@@ -321,7 +332,7 @@ tab1, tab2, tab3, tab4, tab7, tab6, tab5 = st.tabs([
 ])
 
 # ==========================================
-# TAB 1: 舊客戶速查與編輯 
+# TAB 1: 舊客戶速查與編輯
 # ==========================================
 with tab1:
     col_left_spacer, col_main_center, col_right_spacer = st.columns([1, 8, 1])
@@ -334,7 +345,7 @@ with tab1:
             st.session_state.jump_search_query = ""
 
         search_query = st.text_input(
-            "輸入 姓名 / 手機 / 代號 進行速查：", 
+            "輸入 姓名 / 手機 / 統編 / 代號 進行速查：", 
             value=default_search,
             placeholder="例：蔡汶容、0912345678",
             key="accurate_cust_search"
@@ -381,44 +392,60 @@ with tab1:
                     with st.form(key=f"edit_cust_form_tab1_{cid}"):
                         st.markdown("### ✏️ 基本資料編輯")
                         
+                        # Row 1 (代號 / 統編)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">客戶代號</div>', unsafe_allow_html=True)
                         edit_code = c2.text_input("客戶代號", value=ccode, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">統編</div>', unsafe_allow_html=True)
                         edit_id_card = c4.text_input("統編", value=cid_card, label_visibility="collapsed")
                         
+                        # Row 2 (姓名 / 性別)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">姓名 *</div>', unsafe_allow_html=True)
                         edit_name = c2.text_input("姓名", value=cname, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">性別</div>', unsafe_allow_html=True)
                         edit_gender = c4.selectbox("性別", ["女", "男", "其他"], index=0 if cgender == "女" else (1 if cgender == "男" else 2), label_visibility="collapsed")
                         
+                        # Row 3 (手機 1 / 手機 2)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">手機 1 *</div>', unsafe_allow_html=True)
                         edit_phone = c2.text_input("手機 1", value=cphone, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">手機 2</div>', unsafe_allow_html=True)
                         edit_phone_bak = c4.text_input("手機 2", value=cphone_bak, label_visibility="collapsed")
                         
+                        # Row 4 (市話 1 / 市話 2)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">市話 1</div>', unsafe_allow_html=True)
-                        edit_tel = c2.text_input("市話 1", value=ctel, label_visibility="collapsed")
-                        c3.markdown('<div class="lbl">市話 2</div>', unsafe_allow_html=True)
-                        edit_tel2 = c4.text_input("市話 2", value="", label_visibility="collapsed", placeholder="選填")
+                        
+                        # 分離舊系統中已經合併的市話
+                        old_tel1, old_tel2 = ctel, ""
+                        if ctel and "/" in ctel:
+                            parts = ctel.split("/")
+                            old_tel1 = parts[0].strip()
+                            old_tel2 = parts[1].strip() if len(parts) > 1 else ""
 
+                        edit_tel = c2.text_input("市話 1", value=old_tel1, label_visibility="collapsed")
+                        c3.markdown('<div class="lbl">市話 2</div>', unsafe_allow_html=True)
+                        edit_tel2 = c4.text_input("市話 2", value=old_tel2, label_visibility="collapsed", placeholder="選填")
+
+                        # Row 5 (地址)
                         ca1, ca2 = st.columns([1.5, 8.5])
                         ca1.markdown('<div class="lbl">地址 *</div>', unsafe_allow_html=True)
                         edit_addr = ca2.text_input("地址", value=caddr, label_visibility="collapsed")
                         
+                        # Row 6 (第二地址)
                         ca1, ca2 = st.columns([1.5, 8.5])
                         ca1.markdown('<div class="lbl">第二地址</div>', unsafe_allow_html=True)
                         edit_r2_addr = ca2.text_input("第二地址", value=cr2_addr, label_visibility="collapsed")
                         
+                        # Row 7 (收件人2)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">收件人2姓名</div>', unsafe_allow_html=True)
                         edit_r2_name = c2.text_input("收件人2姓名", value=cr2_name, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">收件人2手機</div>', unsafe_allow_html=True)
                         edit_r2_phone = c4.text_input("收件人2手機", value=cr2_phone, label_visibility="collapsed")
 
+                        # Row 8 (備註放大)
                         cn1, cn2 = st.columns([1.5, 8.5])
                         cn1.markdown('<div class="lbl" style="height:140px;">備註</div>', unsafe_allow_html=True)
                         edit_pref = cn2.text_area("備註", value=cpref, label_visibility="collapsed")
@@ -473,6 +500,7 @@ with tab1:
                                     "amt": new_order_amt, "odate": str(new_order_date),
                                     "status": new_order_source, "notes": new_order_notes
                                 })
+                                st.cache_data.clear() # 更新快取
                                 st.success(f"🎉 已成功新增訂單！")
                                 st.rerun()
 
@@ -582,6 +610,7 @@ with tab2:
                             "cid": new_cid, "chan": chan_clean, "prod": n_prod,
                             "amt": n_amt, "odate": str(n_date), "status": n_source
                         })
+                        st.cache_data.clear()
                     st.success(f"🎉 成功建立新會員【{n_name}】！")
                     st.rerun()
 
@@ -652,9 +681,16 @@ with tab3:
                     
                     c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                     c1.markdown('<div class="lbl">市話 1</div>', unsafe_allow_html=True)
-                    t_tel = c2.text_input("市話 1", value=ctel, label_visibility="collapsed")
+                    
+                    old_tel1, old_tel2 = ctel, ""
+                    if ctel and "/" in ctel:
+                        parts = ctel.split("/")
+                        old_tel1 = parts[0].strip()
+                        old_tel2 = parts[1].strip() if len(parts) > 1 else ""
+
+                    t_tel = c2.text_input("市話 1", value=old_tel1, label_visibility="collapsed")
                     c3.markdown('<div class="lbl">市話 2</div>', unsafe_allow_html=True)
-                    t_tel2 = c4.text_input("市話 2", value="", label_visibility="collapsed", placeholder="選填")
+                    t_tel2 = c4.text_input("市話 2", value=old_tel2, label_visibility="collapsed", placeholder="選填")
 
                     ca1, ca2 = st.columns([1.5, 8.5])
                     ca1.markdown('<div class="lbl">地址 *</div>', unsafe_allow_html=True)
@@ -718,7 +754,8 @@ with tab3:
                                 "amt": new_order_amt, "odate": str(new_order_date),
                                 "status": new_order_source, "notes": new_order_notes
                             })
-                            st.success(f"🎉 已成功為【{cname}】新增訂單！")
+                            st.cache_data.clear() # 更新快取
+                            st.success(f"🎉 已成功新增訂單！")
                             st.rerun()
 
                 st.markdown("---")

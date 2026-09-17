@@ -11,7 +11,7 @@ from email.mime.text import MIMEText
 # --- 0. 設定頁面配置與極簡大格子 CSS ---
 st.set_page_config(page_title="有其田 客服 CRM 系統", layout="wide", page_icon="🌾")
 
-# 🔥 訂單來源選項 (取代舊的訂單狀態)
+# 🔥 訂單來源選項
 ORDER_SOURCES = [
     "未指定 / 自然流量", 
     "FB 再行銷", 
@@ -26,7 +26,7 @@ ORDER_SOURCES = [
     "其他"
 ]
 
-# 🚨 採用真空壓縮 CSS，完全復刻傳統 ERP 緊湊水平排版
+# 🚨 採用真空壓縮 CSS，加入淺藍色半透明標籤樣式
 st.markdown("""
 <style>
 /* 縮小字體與整體寬度，提升資訊密度 */
@@ -47,8 +47,21 @@ div[data-testid="stInputValue"] { min-height: 38px !important; }
 textarea { font-size: 15px !important; min-height: 120px !important; line-height: 1.5 !important; border: 1px solid #a0aec0 !important; border-radius: 4px !important; }
 .stButton > button { min-height: 40px !important; font-size: 16px !important; font-weight: bold !important; border-radius: 4px !important; border: 1px solid #cbd5e0 !important; }
 
-/* 🌟 核心：水平排版的 Label 樣式 */
-.lbl { margin-top: 8px; font-weight: 700; color: #4a5568; font-size: 14px; text-align: right; padding-right: 5px; }
+/* 🌟 核心：水平排版的 Label 樣式 (淺藍色半透明背景塊) */
+.lbl { 
+    background-color: rgba(190, 227, 248, 0.5); /* 淺藍色半透明 */
+    color: #2a4365; /* 深藍字體 */
+    font-weight: 700; 
+    font-size: 15px; 
+    text-align: center; 
+    border: 1px solid #90cdf4;
+    border-radius: 4px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+}
 
 hr { margin: 20px 0 !important; border: 0 !important; border-top: 1px solid #e2e8f0 !important; }
 div.streamlit-expanderHeader { background-color: #f7fafc !important; border: 1px solid #cbd5e0 !important; border-radius: 4px !important; }
@@ -286,7 +299,7 @@ tab1, tab2, tab3, tab4, tab7, tab6, tab5 = st.tabs([
 ])
 
 # ==========================================
-# TAB 1: 舊客戶速查與編輯 (🌟 縮小佔比，取消下拉展開，復刻 ERP 水平版面)
+# TAB 1: 舊客戶速查與編輯 (🌟 淺藍色塊標籤 + 移除多餘欄位)
 # ==========================================
 with tab1:
     col_left_spacer, col_main_center, col_right_spacer = st.columns([1.5, 7, 1.5])
@@ -343,50 +356,55 @@ with tab1:
                     m1.metric("累積購買次數", f"{total_orders} 次")
                     m2.metric("累積消費金額", f"NT$ {total_spent:,}")
 
-                    # 🌟 移除下拉選單，直接展開全版面，採用 標籤+輸入框 左右併排
                     with st.form(key=f"edit_cust_form_tab1_{cid}"):
                         st.markdown("### ✏️ 基本資料編輯")
                         
+                        # Row 1
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">客戶代號</div>', unsafe_allow_html=True)
                         edit_code = c2.text_input("客戶代號", value=ccode, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">身分證號</div>', unsafe_allow_html=True)
                         edit_id_card = c4.text_input("身分證號", value=cid_card, label_visibility="collapsed")
                         
+                        # Row 2
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">姓名 *</div>', unsafe_allow_html=True)
                         edit_name = c2.text_input("姓名", value=cname, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">性別</div>', unsafe_allow_html=True)
                         edit_gender = c4.selectbox("性別", ["女", "男", "其他"], index=0 if cgender == "女" else (1 if cgender == "男" else 2), label_visibility="collapsed")
                         
+                        # Row 3
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">手機 1 *</div>', unsafe_allow_html=True)
                         edit_phone = c2.text_input("手機 1", value=cphone, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">手機 2</div>', unsafe_allow_html=True)
                         edit_phone_bak = c4.text_input("手機 2", value=cphone_bak, label_visibility="collapsed")
                         
-                        c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
+                        # Row 4 (移除市話2的保留格子，讓右半邊留白)
+                        c1, c2, _ = st.columns([1.5, 3.5, 5])
                         c1.markdown('<div class="lbl">市話 1</div>', unsafe_allow_html=True)
                         edit_tel = c2.text_input("市話 1", value=ctel, label_visibility="collapsed")
-                        c3.markdown('<div class="lbl">市話 2</div>', unsafe_allow_html=True)
-                        st.text_input("市話 2", value="", disabled=True, label_visibility="collapsed", placeholder="保留欄位")
 
+                        # Row 5 (地址)
                         ca1, ca2 = st.columns([1.5, 8.5])
                         ca1.markdown('<div class="lbl">地址 *</div>', unsafe_allow_html=True)
                         edit_addr = ca2.text_input("地址", value=caddr, label_visibility="collapsed")
                         
+                        # Row 6 (第二地址)
                         ca1, ca2 = st.columns([1.5, 8.5])
                         ca1.markdown('<div class="lbl">第二地址</div>', unsafe_allow_html=True)
                         edit_r2_addr = ca2.text_input("第二地址", value=cr2_addr, label_visibility="collapsed")
                         
+                        # Row 7 (收件人2)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">收件人2姓名</div>', unsafe_allow_html=True)
                         edit_r2_name = c2.text_input("收件人2姓名", value=cr2_name, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">收件人2手機</div>', unsafe_allow_html=True)
                         edit_r2_phone = c4.text_input("收件人2手機", value=cr2_phone, label_visibility="collapsed")
 
+                        # Row 8 (備註放大)
                         cn1, cn2 = st.columns([1.5, 8.5])
-                        cn1.markdown('<div class="lbl">備註</div>', unsafe_allow_html=True)
+                        cn1.markdown('<div class="lbl" style="height:120px;">備註</div>', unsafe_allow_html=True)
                         edit_pref = cn2.text_area("備註", value=cpref, label_visibility="collapsed")
 
                         st.markdown("<br>", unsafe_allow_html=True)
@@ -463,11 +481,9 @@ with tab2:
             c3.markdown('<div class="lbl">手機 2</div>', unsafe_allow_html=True)
             n_phone_bak = c4.text_input("手機 2", label_visibility="collapsed")
             
-            c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
+            c1, c2, _ = st.columns([1.5, 3.5, 5])
             c1.markdown('<div class="lbl">市話 1</div>', unsafe_allow_html=True)
             n_tel = c2.text_input("市話 1", label_visibility="collapsed")
-            c3.markdown('<div class="lbl">市話 2</div>', unsafe_allow_html=True)
-            st.text_input("市話 2(新)", value="", disabled=True, label_visibility="collapsed")
 
             ca1, ca2 = st.columns([1.5, 8.5])
             ca1.markdown('<div class="lbl">地址 *</div>', unsafe_allow_html=True)
@@ -484,7 +500,7 @@ with tab2:
             n_r2_phone = c4.text_input("收件人2手機", label_visibility="collapsed")
 
             cn1, cn2 = st.columns([1.5, 8.5])
-            cn1.markdown('<div class="lbl">備註</div>', unsafe_allow_html=True)
+            cn1.markdown('<div class="lbl" style="height:120px;">備註</div>', unsafe_allow_html=True)
             n_pref = cn2.text_area("備註", label_visibility="collapsed")
 
             st.markdown("---")
@@ -600,11 +616,9 @@ with tab3:
                     c3.markdown('<div class="lbl">手機 2</div>', unsafe_allow_html=True)
                     t_phone_bak = c4.text_input("手機 2", value=cphone_bak, label_visibility="collapsed")
                     
-                    c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
+                    c1, c2, _ = st.columns([1.5, 3.5, 5])
                     c1.markdown('<div class="lbl">市話 1</div>', unsafe_allow_html=True)
                     t_tel = c2.text_input("市話 1", value=ctel, label_visibility="collapsed")
-                    c3.markdown('<div class="lbl">市話 2</div>', unsafe_allow_html=True)
-                    st.text_input("市話 2(新)", value="", disabled=True, label_visibility="collapsed")
 
                     ca1, ca2 = st.columns([1.5, 8.5])
                     ca1.markdown('<div class="lbl">地址 *</div>', unsafe_allow_html=True)
@@ -621,7 +635,7 @@ with tab3:
                     t_r2_phone = c4.text_input("收件人2手機", value=cr2_phone, label_visibility="collapsed")
 
                     cn1, cn2 = st.columns([1.5, 8.5])
-                    cn1.markdown('<div class="lbl">備註</div>', unsafe_allow_html=True)
+                    cn1.markdown('<div class="lbl" style="height:120px;">備註</div>', unsafe_allow_html=True)
                     t_pref = cn2.text_area("備註", value=cpref, label_visibility="collapsed")
 
                     st.markdown("<br>", unsafe_allow_html=True)

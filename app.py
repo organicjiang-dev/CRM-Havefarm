@@ -26,11 +26,11 @@ ORDER_SOURCES = [
     "其他"
 ]
 
-# 🚨 採用真空壓縮 CSS，字體全面加粗 (Bold) 與按鈕優化設計
+# 🚨 採用真空壓縮 CSS，字體全面加粗 (Bold) 且修正下拉選單亂碼問題
 st.markdown("""
 <style>
-/* 🌟 1. 字體全面加粗，高度放大，達到極致舒適大格子 */
-html, body, [class*="css"], p, span, div { font-size: 20px !important; font-weight: 700 !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", sans-serif !important; color: #2d3748 !important; }
+/* 🌟 1. 字體全面加粗，高度放大 (精準避開系統隱藏圖示，防止亂碼) */
+html, body, p, label, th, td, [class*="css"] { font-size: 20px !important; font-weight: 700 !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", sans-serif !important; color: #2d3748 !important; }
 
 /* 頂部分頁導覽列 (Tabs) */
 div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { gap: 4px !important; padding-top: 10px !important; padding-bottom: 5px !important; }
@@ -81,7 +81,8 @@ button[kind="primary"]:hover {
 }
 
 hr { margin: 20px 0 !important; border: 0 !important; border-top: 1px solid #e2e8f0 !important; }
-div.streamlit-expanderHeader { background-color: #f7fafc !important; border: 1px solid #cbd5e0 !important; border-radius: 4px !important; font-size: 18px !important; font-weight: 800 !important; }
+div.streamlit-expanderHeader { background-color: #f7fafc !important; border: 1px solid #cbd5e0 !important; border-radius: 4px !important; }
+div.streamlit-expanderHeader p { font-size: 18px !important; font-weight: 800 !important; color: #2d3748 !important; margin-bottom: 0px !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -296,7 +297,7 @@ def render_editable_orders(history_df, prefix_key):
                     if save_order_btn:
                         execute_query("UPDATE orders SET channel = :chan, product = :prod, amount = :amt, order_date = :odate, status = :source, order_notes = :notes WHERE order_id = :oid", 
                                       {"chan": o_chan, "prod": o_prod, "amt": o_amt, "odate": o_date, "source": o_source, "notes": o_notes, "oid": oid})
-                        st.cache_data.clear() 
+                        st.cache_data.clear() # 更新快取
                         st.success(f"✅ 訂單修改成功！")
                         st.rerun()
 
@@ -306,6 +307,7 @@ def render_editable_orders(history_df, prefix_key):
                         delete_order(oid)
                         st.success(f"✅ 已刪除！")
                         st.rerun()
+
 
 # --- 🌟 主介面頂部設計 (無側邊欄) ---
 col_title, col_user = st.columns([4, 1])
@@ -388,28 +390,24 @@ with tab1:
                     with st.form(key=f"edit_cust_form_tab1_{cid}"):
                         st.markdown("### ✏️ 基本資料編輯")
                         
-                        # Row 1 (代號 / 統編)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">客戶代號</div>', unsafe_allow_html=True)
                         edit_code = c2.text_input("客戶代號", value=ccode, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">統編</div>', unsafe_allow_html=True)
                         edit_id_card = c4.text_input("統編", value=cid_card, label_visibility="collapsed")
                         
-                        # Row 2 (姓名 / 性別)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">姓名 *</div>', unsafe_allow_html=True)
                         edit_name = c2.text_input("姓名", value=cname, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">性別</div>', unsafe_allow_html=True)
                         edit_gender = c4.selectbox("性別", ["女", "男", "其他"], index=0 if cgender == "女" else (1 if cgender == "男" else 2), label_visibility="collapsed")
                         
-                        # Row 3 (手機 1 / 手機 2)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">手機 1 *</div>', unsafe_allow_html=True)
                         edit_phone = c2.text_input("手機 1", value=cphone, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">手機 2</div>', unsafe_allow_html=True)
                         edit_phone_bak = c4.text_input("手機 2", value=cphone_bak, label_visibility="collapsed")
                         
-                        # Row 4 (市話 1 / 市話 2)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">市話 1</div>', unsafe_allow_html=True)
                         
@@ -423,26 +421,22 @@ with tab1:
                         c3.markdown('<div class="lbl">市話 2</div>', unsafe_allow_html=True)
                         edit_tel2 = c4.text_input("市話 2", value=old_tel2, label_visibility="collapsed", placeholder="選填")
 
-                        # Row 5 (地址)
                         ca1, ca2 = st.columns([1.5, 8.5])
                         ca1.markdown('<div class="lbl">地址 *</div>', unsafe_allow_html=True)
                         edit_addr = ca2.text_input("地址", value=caddr, label_visibility="collapsed")
                         
-                        # Row 6 (第二地址)
                         ca1, ca2 = st.columns([1.5, 8.5])
                         ca1.markdown('<div class="lbl">第二地址</div>', unsafe_allow_html=True)
                         edit_r2_addr = ca2.text_input("第二地址", value=cr2_addr, label_visibility="collapsed")
                         
-                        # Row 7 (收件人2)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">收件人2姓名</div>', unsafe_allow_html=True)
                         edit_r2_name = c2.text_input("收件人2姓名", value=cr2_name, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">收件人2手機</div>', unsafe_allow_html=True)
                         edit_r2_phone = c4.text_input("收件人2手機", value=cr2_phone, label_visibility="collapsed")
 
-                        # Row 8 (備註)
                         cn1, cn2 = st.columns([1.5, 8.5])
-                        cn1.markdown('<div class="lbl" style="height:160px;">備註</div>', unsafe_allow_html=True)
+                        cn1.markdown('<div class="lbl" style="height:140px;">備註</div>', unsafe_allow_html=True)
                         edit_pref = cn2.text_area("備註", value=cpref, label_visibility="collapsed")
 
                         st.markdown("<br>", unsafe_allow_html=True)
@@ -551,7 +545,7 @@ with tab2:
             n_r2_phone = c4.text_input("收件人2手機", label_visibility="collapsed")
 
             cn1, cn2 = st.columns([1.5, 8.5])
-            cn1.markdown('<div class="lbl" style="height:160px;">備註</div>', unsafe_allow_html=True)
+            cn1.markdown('<div class="lbl" style="height:140px;">備註</div>', unsafe_allow_html=True)
             n_pref = cn2.text_area("備註", label_visibility="collapsed")
 
             st.markdown("---")
@@ -701,7 +695,7 @@ with tab3:
                     t_r2_phone = c4.text_input("收件人2手機", value=cr2_phone, label_visibility="collapsed")
 
                     cn1, cn2 = st.columns([1.5, 8.5])
-                    cn1.markdown('<div class="lbl" style="height:160px;">備註</div>', unsafe_allow_html=True)
+                    cn1.markdown('<div class="lbl" style="height:140px;">備註</div>', unsafe_allow_html=True)
                     t_pref = cn2.text_area("備註", value=cpref, label_visibility="collapsed")
 
                     st.markdown("<br>", unsafe_allow_html=True)

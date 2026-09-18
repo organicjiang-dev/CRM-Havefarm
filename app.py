@@ -26,33 +26,33 @@ ORDER_SOURCES = [
     "其他"
 ]
 
-# 🚨 採用真空壓縮 CSS，字體再放大與按鈕優化設計
+# 🚨 採用真空壓縮 CSS，字體全面加粗 (Bold) 與按鈕優化設計
 st.markdown("""
 <style>
-/* 🌟 字體與高度再放大，達到極致舒適大格子 */
-html, body, [class*="css"] { font-size: 20px !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", sans-serif !important; color: #2d3748 !important; }
+/* 🌟 1. 字體全面加粗，高度放大，達到極致舒適大格子 */
+html, body, [class*="css"], p, span, div { font-size: 20px !important; font-weight: 700 !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", sans-serif !important; color: #2d3748 !important; }
 
 /* 頂部分頁導覽列 (Tabs) */
 div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { gap: 4px !important; padding-top: 10px !important; padding-bottom: 5px !important; }
-div[data-testid="stTabs"] button[data-baseweb="tab"] { font-size: 20px !important; background-color: #f8fafc !important; border-radius: 4px 4px 0 0 !important; border: 1px solid #cbd5e0 !important; border-bottom: none !important; padding: 10px 20px !important; }
+div[data-testid="stTabs"] button[data-baseweb="tab"] { font-size: 20px !important; font-weight: 800 !important; background-color: #f8fafc !important; border-radius: 4px 4px 0 0 !important; border: 1px solid #cbd5e0 !important; border-bottom: none !important; padding: 10px 20px !important; }
 div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] { border-top: 5px solid #e53e3e !important; background-color: #ffffff !important; }
 
-/* 標題與文字 */
+/* 標題與文字 (特粗體) */
 h1 { font-size: 32px !important; font-weight: 900 !important; margin-bottom: 10px !important; }
-h3 { font-size: 24px !important; font-weight: 800 !important; margin-top: 5px !important; margin-bottom: 10px !important; color: #2b6cb0 !important; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; }
+h3 { font-size: 24px !important; font-weight: 900 !important; margin-top: 5px !important; margin-bottom: 10px !important; color: #2b6cb0 !important; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; }
 
 /* 輸入框放大緊湊化 (高度 50px) */
-input[type="text"], input[type="password"], input[type="number"], select, div[data-baseweb="select"] > div { font-size: 20px !important; min-height: 50px !important; border-radius: 4px !important; border: 1px solid #a0aec0 !important; padding: 6px 12px !important; background-color: #ffffff !important; color: #1a202c !important; }
+input[type="text"], input[type="password"], input[type="number"], select, div[data-baseweb="select"] > div { font-size: 20px !important; font-weight: 700 !important; min-height: 50px !important; border-radius: 4px !important; border: 1px solid #a0aec0 !important; padding: 6px 12px !important; background-color: #ffffff !important; color: #1a202c !important; }
 div[data-testid="stInputValue"] { min-height: 50px !important; }
-textarea { font-size: 20px !important; min-height: 140px !important; line-height: 1.5 !important; border: 1px solid #a0aec0 !important; border-radius: 4px !important; }
+textarea { font-size: 20px !important; font-weight: 700 !important; min-height: 140px !important; line-height: 1.5 !important; border: 1px solid #a0aec0 !important; border-radius: 4px !important; }
 
 /* 一般按鈕 */
-.stButton > button { min-height: 50px !important; font-size: 20px !important; font-weight: bold !important; border-radius: 6px !important; border: 1px solid #cbd5e0 !important; }
+.stButton > button { min-height: 50px !important; font-size: 20px !important; font-weight: 900 !important; border-radius: 6px !important; border: 1px solid #cbd5e0 !important; }
 
 /* 儲存按鈕專屬跳色設計 (淺藍半透明背景 + 藍色文字) */
 button[kind="primary"] {
-    background-color: rgba(190, 227, 248, 0.5) !important;
-    color: #2b6cb0 !important;
+    background-color: rgba(190, 227, 248, 0.5) !important; 
+    color: #2b6cb0 !important; 
     border: 2px solid #90cdf4 !important;
     font-size: 20px !important;
     font-weight: 900 !important;
@@ -68,7 +68,7 @@ button[kind="primary"]:hover {
 .lbl { 
     background-color: rgba(190, 227, 248, 0.5); 
     color: #2a4365; 
-    font-weight: 800; 
+    font-weight: 900 !important; 
     font-size: 18px; 
     text-align: center; 
     border: 1px solid #90cdf4;
@@ -81,7 +81,7 @@ button[kind="primary"]:hover {
 }
 
 hr { margin: 20px 0 !important; border: 0 !important; border-top: 1px solid #e2e8f0 !important; }
-div.streamlit-expanderHeader { background-color: #f7fafc !important; border: 1px solid #cbd5e0 !important; border-radius: 4px !important; font-size: 18px !important; }
+div.streamlit-expanderHeader { background-color: #f7fafc !important; border: 1px solid #cbd5e0 !important; border-radius: 4px !important; font-size: 18px !important; font-weight: 800 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -185,7 +185,7 @@ def read_query(query, params=None):
     with engine.connect() as conn:
         return pd.read_sql_query(text(query), conn, params=params or {})
 
-# 🚀 【全快取記憶體架構 1】把客戶主資料放進 RAM 裡
+# 🚀 全快取記憶體架構
 @st.cache_data(ttl=600)
 def get_cached_customers_df():
     return read_query("""
@@ -195,7 +195,6 @@ def get_cached_customers_df():
         ORDER BY customer_code DESC, customer_id DESC
     """)
 
-# 🚀 【全快取記憶體架構 2】把所有訂單紀錄也放進 RAM 裡 (零延遲切換的關鍵)
 @st.cache_data(ttl=600)
 def get_cached_orders_df():
     return read_query("""
@@ -204,7 +203,6 @@ def get_cached_orders_df():
         ORDER BY order_date DESC, order_id DESC
     """)
 
-# 🚀 優化編號產生器：用 Pandas 向量運算瞬間算出最大值
 def get_next_crm_code():
     df = get_cached_customers_df()
     codes = df['customer_code'].dropna().astype(str)
@@ -239,7 +237,6 @@ def get_customer_by_id(cid):
     target = df[df['customer_id'] == cid]
     return target.iloc[0].to_dict() if not target.empty else None
 
-# 🚀 直接從快取 RAM 中讀取歷史訂單，速度提升 100 倍！
 def get_customer_history(customer_id):
     df = get_cached_orders_df()
     return df[df['customer_id'] == customer_id]
@@ -299,7 +296,7 @@ def render_editable_orders(history_df, prefix_key):
                     if save_order_btn:
                         execute_query("UPDATE orders SET channel = :chan, product = :prod, amount = :amt, order_date = :odate, status = :source, order_notes = :notes WHERE order_id = :oid", 
                                       {"chan": o_chan, "prod": o_prod, "amt": o_amt, "odate": o_date, "source": o_source, "notes": o_notes, "oid": oid})
-                        st.cache_data.clear() # 更新快取
+                        st.cache_data.clear() 
                         st.success(f"✅ 訂單修改成功！")
                         st.rerun()
 
@@ -309,7 +306,6 @@ def render_editable_orders(history_df, prefix_key):
                         delete_order(oid)
                         st.success(f"✅ 已刪除！")
                         st.rerun()
-
 
 # --- 🌟 主介面頂部設計 (無側邊欄) ---
 col_title, col_user = st.columns([4, 1])
@@ -417,7 +413,6 @@ with tab1:
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">市話 1</div>', unsafe_allow_html=True)
                         
-                        # 分離舊系統中已經合併的市話
                         old_tel1, old_tel2 = ctel, ""
                         if ctel and "/" in ctel:
                             parts = ctel.split("/")
@@ -445,14 +440,13 @@ with tab1:
                         c3.markdown('<div class="lbl">收件人2手機</div>', unsafe_allow_html=True)
                         edit_r2_phone = c4.text_input("收件人2手機", value=cr2_phone, label_visibility="collapsed")
 
-                        # Row 8 (備註放大)
+                        # Row 8 (備註)
                         cn1, cn2 = st.columns([1.5, 8.5])
-                        cn1.markdown('<div class="lbl" style="height:140px;">備註</div>', unsafe_allow_html=True)
+                        cn1.markdown('<div class="lbl" style="height:160px;">備註</div>', unsafe_allow_html=True)
                         edit_pref = cn2.text_area("備註", value=cpref, label_visibility="collapsed")
 
                         st.markdown("<br>", unsafe_allow_html=True)
                         
-                        # 🌟 儲存按鈕：置中、縮短、跳色設計
                         btn_col1, btn_col2, btn_col3 = st.columns([3, 4, 3])
                         with btn_col2:
                             save_cust_btn = st.form_submit_button("💾 儲存資料", type="primary", use_container_width=True)
@@ -500,7 +494,7 @@ with tab1:
                                     "amt": new_order_amt, "odate": str(new_order_date),
                                     "status": new_order_source, "notes": new_order_notes
                                 })
-                                st.cache_data.clear() # 更新快取
+                                st.cache_data.clear() 
                                 st.success(f"🎉 已成功新增訂單！")
                                 st.rerun()
 
@@ -557,7 +551,7 @@ with tab2:
             n_r2_phone = c4.text_input("收件人2手機", label_visibility="collapsed")
 
             cn1, cn2 = st.columns([1.5, 8.5])
-            cn1.markdown('<div class="lbl" style="height:140px;">備註</div>', unsafe_allow_html=True)
+            cn1.markdown('<div class="lbl" style="height:160px;">備註</div>', unsafe_allow_html=True)
             n_pref = cn2.text_area("備註", label_visibility="collapsed")
 
             st.markdown("---")
@@ -707,7 +701,7 @@ with tab3:
                     t_r2_phone = c4.text_input("收件人2手機", value=cr2_phone, label_visibility="collapsed")
 
                     cn1, cn2 = st.columns([1.5, 8.5])
-                    cn1.markdown('<div class="lbl" style="height:140px;">備註</div>', unsafe_allow_html=True)
+                    cn1.markdown('<div class="lbl" style="height:160px;">備註</div>', unsafe_allow_html=True)
                     t_pref = cn2.text_area("備註", value=cpref, label_visibility="collapsed")
 
                     st.markdown("<br>", unsafe_allow_html=True)
@@ -754,8 +748,8 @@ with tab3:
                                 "amt": new_order_amt, "odate": str(new_order_date),
                                 "status": new_order_source, "notes": new_order_notes
                             })
-                            st.cache_data.clear() # 更新快取
-                            st.success(f"🎉 已成功新增訂單！")
+                            st.cache_data.clear() 
+                            st.success(f"🎉 已成功為【{cname}】新增訂單！")
                             st.rerun()
 
                 st.markdown("---")
@@ -850,29 +844,82 @@ with tab4:
 # ==========================================
 with tab7:
     st.subheader("🎯 智慧回購清單與電銷追蹤戰情室")
+    
+    st.markdown("#### 🔍 進階撈單：精準行銷與自訂沉睡客篩選")
+    st.info("💡 設定「最後購買日」區間，找出特定期間流失的客人。例如：設定 2024/01/01 ~ 2024/12/31，代表「最後一次買是在 2024 年，之後就再也沒買過」的客人。")
+    
+    with st.form("advanced_filter_form"):
+        col_f1, col_f2, col_f3 = st.columns(3)
+        with col_f1:
+            filter_start = st.date_input("最後購買日 (起)", value=date.today() - timedelta(days=365))
+        with col_f2:
+            filter_end = st.date_input("最後購買日 (迄)", value=date.today() - timedelta(days=180))
+        with col_f3:
+            min_amount = st.number_input("歷史總消費金額大於 (NT$)", min_value=0, value=1000, step=500)
+            
+        st.markdown("<br>", unsafe_allow_html=True)
+        btn_f1, btn_f2, btn_f3 = st.columns([3, 4, 3])
+        with btn_f2:
+            filter_btn = st.form_submit_button("🔍 撈出精準電訪名單", type="primary", use_container_width=True)
+        
+    if filter_btn:
+        if filter_start > filter_end:
+            st.error("「起」日期不能大於「迄」日期！")
+        else:
+            adv_sql = """
+                WITH CustomerStats AS (
+                    SELECT 
+                        c.customer_id,
+                        c.customer_code AS "客戶代號",
+                        c.name AS "姓名",
+                        c.phone AS "主要手機",
+                        MAX(o.order_date) AS last_purchase_date,
+                        SUM(o.amount) AS total_spent,
+                        COUNT(o.order_id) AS total_orders
+                    FROM customers c
+                    JOIN orders o ON c.customer_id = o.customer_id
+                    GROUP BY c.customer_id, c.customer_code, c.name, c.phone
+                )
+                SELECT 
+                    "客戶代號", "姓名", "主要手機", 
+                    last_purchase_date AS "最後購買日",
+                    total_orders AS "累積購買次數",
+                    total_spent AS "歷史消費金額"
+                FROM CustomerStats
+                WHERE last_purchase_date >= :s_date 
+                  AND last_purchase_date <= :e_date
+                  AND total_spent >= :min_amt
+                ORDER BY "歷史消費金額" DESC, "最後購買日" DESC
+            """
+            adv_df = read_query(adv_sql, {
+                "s_date": str(filter_start), 
+                "e_date": str(filter_end), 
+                "min_amt": min_amount
+            })
+            
+            if adv_df.empty:
+                st.warning("⚠️ 查無符合條件的客戶名單。")
+            else:
+                st.success(f"✅ 成功撈出 **{len(adv_df)}** 位符合條件的客戶！")
+                st.dataframe(adv_df, use_container_width=True, hide_index=True)
+                
+                adv_out = io.BytesIO()
+                with pd.ExcelWriter(adv_out, engine='xlsxwriter') as w:
+                    adv_df.to_excel(w, index=False, sheet_name='精準電訪名單')
+                st.download_button(
+                    "📥 下載此精準電訪名單 (XLSX)", 
+                    adv_out.getvalue(), 
+                    f"有其田_精準電訪名單_{filter_start}至{filter_end}.xlsx", 
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    type="primary"
+                )
+
+    st.markdown("---")
     today_str = date.today().strftime("%Y-%m-%d")
     st.markdown("#### 🔔 今日預定再訪清單")
     followup_df = read_query("SELECT DISTINCT c.customer_id, c.customer_code, c.name, c.phone, t.next_followup_date, t.call_status, t.call_notes FROM telemarketing_logs t JOIN customers c ON t.customer_id = c.customer_id WHERE t.next_followup_date <= :today ORDER BY t.next_followup_date ASC", {"today": today_str})
     if followup_df.empty: st.info("🎉 目前沒有設定今天必須回訪的客戶！")
     else: st.dataframe(followup_df.drop(columns=["customer_id"]), use_container_width=True)
-
-    st.markdown("---")
-    st.markdown("#### 💤 潛在沉睡客喚醒名單 (超過 180 天未回購)")
-    raw_orders_for_dormant = read_query("SELECT c.customer_id, c.customer_code AS \"客戶代號\", c.name AS \"姓名\", c.phone AS \"主要手機\", o.order_date, o.amount FROM customers c JOIN orders o ON c.customer_id = o.customer_id")
-    if raw_orders_for_dormant.empty: st.info("目前尚無訂單資料。")
-    else:
-        raw_orders_for_dormant['parsed_date'] = pd.to_datetime(raw_orders_for_dormant['order_date'], errors='coerce')
-        agg_df = raw_orders_for_dormant.groupby(['customer_id', '客戶代號', '姓名', '主要手機']).agg(最後購買日=('parsed_date', 'max'), 歷史消費金額=('amount', 'sum')).reset_index()
-        cutoff_date = pd.Timestamp(date.today() - timedelta(days=180))
-        valid_dormant = agg_df.dropna(subset=['最後購買日'])
-        dormant_df = valid_dormant[valid_dormant['最後購買日'] < cutoff_date].sort_values(by='歷史消費金額', ascending=False).head(50)
-        dormant_df['最後購買日'] = dormant_df['最後購買日'].dt.strftime('%Y-%m-%d')
-        if dormant_df.empty: st.info("目前沒有超過 180 天未回購的沉睡客。")
-        else:
-            st.dataframe(dormant_df.drop(columns=["customer_id"]), use_container_width=True)
-            dormant_output = io.BytesIO()
-            with pd.ExcelWriter(dormant_output, engine='xlsxwriter') as writer: dormant_df.drop(columns=["customer_id"]).to_excel(writer, index=False, sheet_name='沉睡客名單')
-            st.download_button(label="📥 匯出這批沉睡客名單", data=dormant_output.getvalue(), file_name="有其田_沉睡客名單.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # ==========================================
 # TAB 6: 期間訂單報表與電銷績效匯出
@@ -910,135 +957,137 @@ with tab6:
 # TAB 5: 批次匯入舊名單與官網訂單報表
 # ==========================================
 with tab5:
-    st.subheader("📥 智慧匯入中心")
-    uploaded_file = st.file_uploader("上傳 Excel 檔案（.xlsx）", type=["xlsx", "xls"], key="excel_uploader_tab5")
+    col_left_spacer_t5, col_main_center_t5, col_right_spacer_t5 = st.columns([1, 8, 1])
+    with col_main_center_t5:
+        st.subheader("📥 智慧匯入中心")
+        uploaded_file = st.file_uploader("上傳 Excel 檔案（.xlsx）", type=["xlsx", "xls"], key="excel_uploader_tab5")
 
-    if uploaded_file is not None:
-        try:
-            excel_file = pd.ExcelFile(uploaded_file)
-            if st.button("🚀 確認並開始智慧增量匯入"):
-                bar = st.progress(10)
-                status = st.empty()
-                existing_cust_df = read_query("SELECT customer_id, customer_code, phone FROM customers")
-                code_to_id, phone_to_id = {}, {}
-                for _, r in existing_cust_df.iterrows():
-                    cid = int(r['customer_id'])
-                    c_code = str(r['customer_code']).strip() if pd.notna(r['customer_code']) else ""
-                    c_phone = str(r['phone']).strip() if pd.notna(r['phone']) else ""
-                    if c_code: code_to_id[c_code] = cid
-                    if c_phone: phone_to_id[c_phone] = cid
+        if uploaded_file is not None:
+            try:
+                excel_file = pd.ExcelFile(uploaded_file)
+                if st.button("🚀 確認並開始智慧增量匯入", type="primary"):
+                    bar = st.progress(10)
+                    status = st.empty()
+                    existing_cust_df = read_query("SELECT customer_id, customer_code, phone FROM customers")
+                    code_to_id, phone_to_id = {}, {}
+                    for _, r in existing_cust_df.iterrows():
+                        cid = int(r['customer_id'])
+                        c_code = str(r['customer_code']).strip() if pd.notna(r['customer_code']) else ""
+                        c_phone = str(r['phone']).strip() if pd.notna(r['phone']) else ""
+                        if c_code: code_to_id[c_code] = cid
+                        if c_phone: phone_to_id[c_phone] = cid
 
-                existing_orders_df = read_query("SELECT customer_id, raw_date_code FROM orders WHERE raw_date_code != ''")
-                existing_order_set = set(zip(existing_orders_df['customer_id'].astype(int), existing_orders_df['raw_date_code'].astype(str)))
+                    existing_orders_df = read_query("SELECT customer_id, raw_date_code FROM orders WHERE raw_date_code != ''")
+                    existing_order_set = set(zip(existing_orders_df['customer_id'].astype(int), existing_orders_df['raw_date_code'].astype(str)))
 
-                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                cust_inserts, order_tasks = [], []
+                    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    cust_inserts, order_tasks = [], []
 
-                for sheet_name in excel_file.sheet_names:
-                    df = pd.read_excel(uploaded_file, sheet_name=sheet_name, dtype=str)
-                    columns_str = "".join(df.columns)
-                    is_official_web_report = "訂單編號" in columns_str and "訂單金額" in columns_str
+                    for sheet_name in excel_file.sheet_names:
+                        df = pd.read_excel(uploaded_file, sheet_name=sheet_name, dtype=str)
+                        columns_str = "".join(df.columns)
+                        is_official_web_report = "訂單編號" in columns_str and "訂單金額" in columns_str
 
-                    if is_official_web_report:
-                        cleaned_orders = []
-                        for order_id, group in df.groupby('訂單編號'):
-                            if pd.isna(order_id) or not str(order_id).strip(): continue
-                            first_row = group.iloc[0]
-                            name = str(first_row.get("會員名稱", "")).strip()
-                            phone = clean_phone(first_row.get("會員手機號碼", ""))
-                            time_str = str(first_row.get("時間", "")).strip()
-                            order_amt = first_row.get("訂單金額", 0)
-                            try: amt_val = float(order_amt) if pd.notna(order_amt) else 0.0
-                            except: amt_val = 0.0
-                            match_date = re.search(r"(\d{4}[-/]\d{2}[-/]\d{2})", time_str)
-                            order_date = match_date.group(1).replace("/", "-") if match_date else str(date.today())
-                            products = [str(p).strip() for p in group.get("訂購商品", []) if pd.notna(p) and str(p).strip()]
-                            product_desc = " / ".join(products) if products else "官網訂購品項"
-                            if not phone: continue
-                            cleaned_orders.append({"name": name, "phone": phone, "order_id_code": str(order_id).strip(), "order_date": order_date, "amount": amt_val, "product": product_desc, "channel": "官網"})
+                        if is_official_web_report:
+                            cleaned_orders = []
+                            for order_id, group in df.groupby('訂單編號'):
+                                if pd.isna(order_id) or not str(order_id).strip(): continue
+                                first_row = group.iloc[0]
+                                name = str(first_row.get("會員名稱", "")).strip()
+                                phone = clean_phone(first_row.get("會員手機號碼", ""))
+                                time_str = str(first_row.get("時間", "")).strip()
+                                order_amt = first_row.get("訂單金額", 0)
+                                try: amt_val = float(order_amt) if pd.notna(order_amt) else 0.0
+                                except: amt_val = 0.0
+                                match_date = re.search(r"(\d{4}[-/]\d{2}[-/]\d{2})", time_str)
+                                order_date = match_date.group(1).replace("/", "-") if match_date else str(date.today())
+                                products = [str(p).strip() for p in group.get("訂購商品", []) if pd.notna(p) and str(p).strip()]
+                                product_desc = " / ".join(products) if products else "官網訂購品項"
+                                if not phone: continue
+                                cleaned_orders.append({"name": name, "phone": phone, "order_id_code": str(order_id).strip(), "order_date": order_date, "amount": amt_val, "product": product_desc, "channel": "官網"})
 
-                        for ord_item in cleaned_orders:
-                            p1, name, r_code = ord_item["phone"], ord_item["name"], ord_item["order_id_code"]
-                            matched_cid = phone_to_id.get(p1)
-                            if matched_cid:
-                                if (matched_cid, r_code) not in existing_order_set:
-                                    order_tasks.append({"target": matched_cid, "channel": ord_item["channel"], "product": ord_item["product"], "amount": ord_item["amount"], "order_date": ord_item["order_date"], "raw_date_code": r_code, "status": "未指定 / 自然流量"})
-                                    existing_order_set.add((matched_cid, r_code))
-                            else:
-                                cust_code = ""
-                                cust_inserts.append({"customer_code": cust_code, "name": name, "gender": "女", "id_card": "", "phone": p1, "phone_backup": "", "tel": "", "address": "官網匯入地址", "created_at": now_str, "customer_source": "官網"})
-                                phone_to_id[p1] = p1
-                                order_tasks.append({"target": p1, "channel": ord_item["channel"], "product": ord_item["product"], "amount": ord_item["amount"], "order_date": ord_item["order_date"], "raw_date_code": r_code, "status": "未指定 / 自然流量"})
-                    else:
-                        default_channel = "官網" if "官網" in sheet_name else "電話訂購"
-                        for _, row in df.iterrows():
-                            cust_code = str(row.get("客戶代號", "")).strip() if pd.notna(row.get("客戶代號")) else ""
-                            name = str(row.get("姓名", "")).strip() if pd.notna(row.get("姓名")) else ""
-                            p1 = clean_phone(row.get("行動(1)", ""))
-                            p2 = clean_phone(row.get("行動(2)", ""))
-                            t1 = str(row.get("電話(1)", "")).strip() if pd.notna(row.get("電話(1)")) else ""
-                            addr = str(row.get("地址", "")).strip() if pd.notna(row.get("地址")) else ""
-                            gender = str(row.get("性別", "")).strip() if pd.notna(row.get("性別")) else ""
-                            id_card = str(row.get("身分證號", "")).strip() if pd.notna(row.get("身分證號")) else ""
-                            if not name or (not p1 and not t1 and not cust_code): continue
-
-                            row_orders = []
-                            for col_name, val in row.items():
-                                if pd.notna(val) and str(val).strip() != "":
-                                    col_str, val_str = str(col_name), str(val).strip()
-                                    if (col_str.startswith("購") and "商品" not in col_str) or col_str.startswith("Unnamed"):
-                                        if (("-" in val_str) or ("/" in val_str) or val_str.upper().startswith("A") or val_str.upper().startswith("B") or val_str.upper().startswith("L")):
-                                            o_chan, o_date, r_code = parse_date_code(val_str, default_channel)
-                                            row_orders.append((o_chan, o_date, r_code))
-
-                            matched_cid = code_to_id.get(cust_code) or phone_to_id.get(p1)
-                            if matched_cid:
-                                for o_chan, o_date, r_code in row_orders:
+                            for ord_item in cleaned_orders:
+                                p1, name, r_code = ord_item["phone"], ord_item["name"], ord_item["order_id_code"]
+                                matched_cid = phone_to_id.get(p1)
+                                if matched_cid:
                                     if (matched_cid, r_code) not in existing_order_set:
-                                        order_tasks.append({"target": matched_cid, "channel": o_chan, "product": "常態訂購品項", "amount": 0, "order_date": o_date, "raw_date_code": r_code, "status": "未指定 / 自然流量"})
+                                        order_tasks.append({"target": matched_cid, "channel": ord_item["channel"], "product": ord_item["product"], "amount": ord_item["amount"], "order_date": ord_item["order_date"], "raw_date_code": r_code, "status": "未指定 / 自然流量"})
                                         existing_order_set.add((matched_cid, r_code))
-                            else:
-                                if not cust_code: cust_code = ""
-                                cust_inserts.append({"customer_code": cust_code, "name": name, "gender": gender, "id_card": id_card, "phone": p1, "phone_backup": p2, "tel": t1, "address": addr, "created_at": now_str, "customer_source": "未指定 / 自然流量"})
-                                if p1: phone_to_id[p1] = p1 if not cust_code else cust_code
-                                if cust_code: code_to_id[cust_code] = cust_code
-                                for o_chan, o_date, r_code in row_orders:
-                                    order_tasks.append({"target": cust_code if cust_code else p1, "channel": o_chan, "product": "常態訂購品項", "amount": 0, "order_date": o_date, "raw_date_code": r_code, "status": "未指定 / 自然流量"})
+                                else:
+                                    cust_code = ""
+                                    cust_inserts.append({"customer_code": cust_code, "name": name, "gender": "女", "id_card": "", "phone": p1, "phone_backup": "", "tel": "", "address": "官網匯入地址", "created_at": now_str, "customer_source": "官網"})
+                                    phone_to_id[p1] = p1
+                                    order_tasks.append({"target": p1, "channel": ord_item["channel"], "product": ord_item["product"], "amount": ord_item["amount"], "order_date": ord_item["order_date"], "raw_date_code": r_code, "status": "未指定 / 自然流量"})
+                        else:
+                            default_channel = "官網" if "官網" in sheet_name else "電話訂購"
+                            for _, row in df.iterrows():
+                                cust_code = str(row.get("客戶代號", "")).strip() if pd.notna(row.get("客戶代號")) else ""
+                                name = str(row.get("姓名", "")).strip() if pd.notna(row.get("姓名")) else ""
+                                p1 = clean_phone(row.get("行動(1)", ""))
+                                p2 = clean_phone(row.get("行動(2)", ""))
+                                t1 = str(row.get("電話(1)", "")).strip() if pd.notna(row.get("電話(1)")) else ""
+                                addr = str(row.get("地址", "")).strip() if pd.notna(row.get("地址")) else ""
+                                gender = str(row.get("性別", "")).strip() if pd.notna(row.get("性別")) else ""
+                                id_card = str(row.get("身分證號", "")).strip() if pd.notna(row.get("身分證號")) else ""
+                                if not name or (not p1 and not t1 and not cust_code): continue
 
-                bar.progress(50)
-                engine = get_db_engine()
-                if cust_inserts:
-                    pd.DataFrame(cust_inserts).to_sql("customers", engine, if_exists="append", index=False, method="multi", chunksize=500)
+                                row_orders = []
+                                for col_name, val in row.items():
+                                    if pd.notna(val) and str(val).strip() != "":
+                                        col_str, val_str = str(col_name), str(val).strip()
+                                        if (col_str.startswith("購") and "商品" not in col_str) or col_str.startswith("Unnamed"):
+                                            if (("-" in val_str) or ("/" in val_str) or val_str.upper().startswith("A") or val_str.upper().startswith("B") or val_str.upper().startswith("L")):
+                                                o_chan, o_date, r_code = parse_date_code(val_str, default_channel)
+                                                row_orders.append((o_chan, o_date, r_code))
 
-                bar.progress(80)
-                fresh_cust_df = read_query("SELECT customer_id, customer_code, phone FROM customers")
-                code_map = {str(r['customer_code']).strip(): int(r['customer_id']) for _, r in fresh_cust_df.iterrows() if pd.notna(r['customer_code']) and str(r['customer_code']).strip()}
-                phone_map = {str(r['phone']).strip(): int(r['customer_id']) for _, r in fresh_cust_df.iterrows() if pd.notna(r['phone']) and str(r['phone']).strip()}
+                                matched_cid = code_to_id.get(cust_code) or phone_to_id.get(p1)
+                                if matched_cid:
+                                    for o_chan, o_date, r_code in row_orders:
+                                        if (matched_cid, r_code) not in existing_order_set:
+                                            order_tasks.append({"target": matched_cid, "channel": o_chan, "product": "常態訂購品項", "amount": 0, "order_date": o_date, "raw_date_code": r_code, "status": "未指定 / 自然流量"})
+                                            existing_order_set.add((matched_cid, r_code))
+                                else:
+                                    if not cust_code: cust_code = ""
+                                    cust_inserts.append({"customer_code": cust_code, "name": name, "gender": gender, "id_card": id_card, "phone": p1, "phone_backup": p2, "tel": t1, "address": addr, "created_at": now_str, "customer_source": "未指定 / 自然流量"})
+                                    if p1: phone_to_id[p1] = p1 if not cust_code else cust_code
+                                    if cust_code: code_to_id[cust_code] = cust_code
+                                    for o_chan, o_date, r_code in row_orders:
+                                        order_tasks.append({"target": cust_code if cust_code else p1, "channel": o_chan, "product": "常態訂購品項", "amount": 0, "order_date": o_date, "raw_date_code": r_code, "status": "未指定 / 自然流量"})
 
-                final_orders = []
-                for task in order_tasks:
-                    target_ref = task["target"]
-                    final_cid = target_ref if isinstance(target_ref, int) else (code_map.get(str(target_ref)) or phone_map.get(str(target_ref)))
-                    if final_cid:
-                        final_orders.append({"customer_id": int(final_cid), "channel": task["channel"], "product": task["product"], "amount": task["amount"], "order_date": task["order_date"], "raw_date_code": task["raw_date_code"], "status": task["status"], "order_notes": f"單號: {task['raw_date_code']}"})
+                    bar.progress(50)
+                    engine = get_db_engine()
+                    if cust_inserts:
+                        pd.DataFrame(cust_inserts).to_sql("customers", engine, if_exists="append", index=False, method="multi", chunksize=500)
 
-                if final_orders:
-                    orders_df = pd.DataFrame(final_orders).drop_duplicates(subset=["customer_id", "raw_date_code"])
-                    orders_df.to_sql("orders", engine, if_exists="append", index=False, method="multi", chunksize=1000)
+                    bar.progress(80)
+                    fresh_cust_df = read_query("SELECT customer_id, customer_code, phone FROM customers")
+                    code_map = {str(r['customer_code']).strip(): int(r['customer_id']) for _, r in fresh_cust_df.iterrows() if pd.notna(r['customer_code']) and str(r['customer_code']).strip()}
+                    phone_map = {str(r['phone']).strip(): int(r['customer_id']) for _, r in fresh_cust_df.iterrows() if pd.notna(r['phone']) and str(r['phone']).strip()}
 
+                    final_orders = []
+                    for task in order_tasks:
+                        target_ref = task["target"]
+                        final_cid = target_ref if isinstance(target_ref, int) else (code_map.get(str(target_ref)) or phone_map.get(str(target_ref)))
+                        if final_cid:
+                            final_orders.append({"customer_id": int(final_cid), "channel": task["channel"], "product": task["product"], "amount": task["amount"], "order_date": task["order_date"], "raw_date_code": task["raw_date_code"], "status": task["status"], "order_notes": f"單號: {task['raw_date_code']}"})
+
+                    if final_orders:
+                        orders_df = pd.DataFrame(final_orders).drop_duplicates(subset=["customer_id", "raw_date_code"])
+                        orders_df.to_sql("orders", engine, if_exists="append", index=False, method="multi", chunksize=1000)
+
+                    st.cache_data.clear()
+                    bar.progress(100)
+                    st.success(f"🎉 智慧匯入大成功！")
+            except Exception as e: st.error(f"匯入錯誤：{e}")
+                
+        st.markdown("---")
+        st.subheader("🛠️ 資料庫進階維護區：修復重複歷史訂單")
+        if st.button("🧹 一鍵自動清理「同日重複的 0 元佔位訂單」"):
+            try:
+                execute_query("""
+                    DELETE FROM orders o1 WHERE o1.amount = 0 AND EXISTS (SELECT 1 FROM orders o2 WHERE o2.customer_id = o1.customer_id AND o2.order_date = o1.order_date AND o2.order_id != o1.order_id AND o2.amount > 0);
+                """)
+                st.success("✅ 已經成功清除了所有重複的 0 元佔位訂單！")
                 st.cache_data.clear()
-                bar.progress(100)
-                st.success(f"🎉 智慧匯入大成功！")
-        except Exception as e: st.error(f"匯入錯誤：{e}")
-            
-    st.markdown("---")
-    st.subheader("🛠️ 資料庫進階維護區：修復重複歷史訂單")
-    if st.button("🧹 一鍵自動清理「同日重複的 0 元佔位訂單」"):
-        try:
-            execute_query("""
-                DELETE FROM orders o1 WHERE o1.amount = 0 AND EXISTS (SELECT 1 FROM orders o2 WHERE o2.customer_id = o1.customer_id AND o2.order_date = o1.order_date AND o2.order_id != o1.order_id AND o2.amount > 0);
-            """)
-            st.success("✅ 已經成功清除了所有重複的 0 元佔位訂單！")
-            st.cache_data.clear()
-        except Exception as e:
-            st.error(f"清理失敗：{e}")
+            except Exception as e:
+                st.error(f"清理失敗：{e}")

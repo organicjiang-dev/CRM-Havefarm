@@ -221,7 +221,6 @@ def clean_phone(p):
     elif len(s) == 9 and s.startswith("9"): s = "0" + s
     return s
 
-# 🌟 補回匯入必備的解析舊版日期代碼功能 (修復匯入錯誤)
 def parse_date_code(val_str, default_channel="官網"):
     raw = str(val_str).strip()
     channel = default_channel
@@ -248,16 +247,37 @@ def parse_date_code(val_str, default_channel="官網"):
 
     return channel, raw, raw
 
+# 🌟 全域無敵搜尋：無視符號、全欄位穿透搜尋
 def search_customers_fast(query_str):
     q = str(query_str).strip()
     if not q: return []
     df = get_cached_customers_df()
     if df.empty: return []
+    
     q_lower = q.lower()
-    q_clean = clean_phone(q)
-    mask = (df['name'].str.lower().str.contains(q_lower, na=False) | df['customer_code'].str.lower().str.contains(q_lower, na=False))
-    if q_clean and len(q_clean) >= 3:
-        mask = mask | (df['phone'].str.contains(q_clean, na=False) | df['phone_backup'].str.contains(q_clean, na=False) | df['recipient2_phone'].str.contains(q_clean, na=False) | df['tel'].str.contains(q_clean, na=False))
+    
+    # 1. 原始文字比對 (包含名字、代號、以及精確的帶符號號碼)
+    mask = (
+        df['name'].str.lower().str.contains(q_lower, na=False) | 
+        df['customer_code'].str.lower().str.contains(q_lower, na=False) |
+        df['phone'].astype(str).str.contains(q_lower, na=False) |
+        df['phone_backup'].astype(str).str.contains(q_lower, na=False) |
+        df['tel'].astype(str).str.contains(q_lower, na=False) |
+        df['recipient2_phone'].astype(str).str.contains(q_lower, na=False)
+    )
+    
+    # 2. 智慧純數字去敏比對 (無視 - 或 空格，全方位涵蓋 手機1/2、市話1/2)
+    q_digits = re.sub(r"[^\d]", "", q_lower)
+    if q_digits and len(q_digits) >= 3:
+        # 防呆機制：去除 886 等開頭干擾
+        if q_digits.startswith("886"): q_digits = "0" + q_digits[3:]
+        elif len(q_digits) == 9 and q_digits.startswith("9"): q_digits = "0" + q_digits
+        
+        for col in ['phone', 'phone_backup', 'tel', 'recipient2_phone']:
+            # 把資料庫該欄位的符號全部拔掉，只留純數字進行比對
+            col_digits = df[col].astype(str).str.replace(r"[^\d]", "", regex=True)
+            mask = mask | col_digits.str.contains(q_digits, na=False)
+            
     return df[mask].to_records(index=False).tolist()
 
 def get_customer_by_id(cid):
@@ -369,9 +389,9 @@ with tab1:
             st.session_state.jump_search_query = ""
 
         search_query = st.text_input(
-            "輸入 姓名 / 手機 / 統編 / 代號 進行速查：", 
+            "輸入 姓名 / 手機 / 市話 / 統編 / 代號 進行速查：", 
             value=default_search,
-            placeholder="例：蔡汶容、0912345678",
+            placeholder="例：蔡汶容、0912345678、02-27421020",
             key="accurate_cust_search"
         ).strip()
 
@@ -416,28 +436,24 @@ with tab1:
                     with st.form(key=f"edit_cust_form_tab1_{cid}"):
                         st.markdown("### ✏️ 基本資料編輯")
                         
-                        # Row 1 (代號 / 統編)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">客戶代號</div>', unsafe_allow_html=True)
                         edit_code = c2.text_input("客戶代號", value=ccode, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">統編</div>', unsafe_allow_html=True)
                         edit_id_card = c4.text_input("統編", value=cid_card, label_visibility="collapsed")
                         
-                        # Row 2 (姓名 / 性別)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">姓名 *</div>', unsafe_allow_html=True)
                         edit_name = c2.text_input("姓名", value=cname, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">性別</div>', unsafe_allow_html=True)
                         edit_gender = c4.selectbox("性別", ["女", "男", "其他"], index=0 if cgender == "女" else (1 if cgender == "男" else 2), label_visibility="collapsed")
                         
-                        # Row 3 (手機 1 / 手機 2)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">手機 1 *</div>', unsafe_allow_html=True)
                         edit_phone = c2.text_input("手機 1", value=cphone, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">手機 2</div>', unsafe_allow_html=True)
                         edit_phone_bak = c4.text_input("手機 2", value=cphone_bak, label_visibility="collapsed")
                         
-                        # Row 4 (市話 1 / 市話 2)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">市話 1</div>', unsafe_allow_html=True)
                         
@@ -451,26 +467,22 @@ with tab1:
                         c3.markdown('<div class="lbl">市話 2</div>', unsafe_allow_html=True)
                         edit_tel2 = c4.text_input("市話 2", value=old_tel2, label_visibility="collapsed", placeholder="選填")
 
-                        # Row 5 (地址)
                         ca1, ca2 = st.columns([1.5, 8.5])
                         ca1.markdown('<div class="lbl">地址 *</div>', unsafe_allow_html=True)
                         edit_addr = ca2.text_input("地址", value=caddr, label_visibility="collapsed")
                         
-                        # Row 6 (第二地址)
                         ca1, ca2 = st.columns([1.5, 8.5])
                         ca1.markdown('<div class="lbl">第二地址</div>', unsafe_allow_html=True)
                         edit_r2_addr = ca2.text_input("第二地址", value=cr2_addr, label_visibility="collapsed")
                         
-                        # Row 7 (收件人2)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">收件人2姓名</div>', unsafe_allow_html=True)
                         edit_r2_name = c2.text_input("收件人2姓名", value=cr2_name, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">收件人2手機</div>', unsafe_allow_html=True)
                         edit_r2_phone = c4.text_input("收件人2手機", value=cr2_phone, label_visibility="collapsed")
 
-                        # Row 8 (備註)
                         cn1, cn2 = st.columns([1.5, 8.5])
-                        cn1.markdown('<div class="lbl" style="height:140px;">備註</div>', unsafe_allow_html=True)
+                        cn1.markdown('<div class="lbl" style="height:160px;">備註</div>', unsafe_allow_html=True)
                         edit_pref = cn2.text_area("備註", value=cpref, label_visibility="collapsed")
 
                         st.markdown("<br>", unsafe_allow_html=True)
@@ -579,7 +591,7 @@ with tab2:
             n_r2_phone = c4.text_input("收件人2手機", label_visibility="collapsed")
 
             cn1, cn2 = st.columns([1.5, 8.5])
-            cn1.markdown('<div class="lbl" style="height:140px;">備註</div>', unsafe_allow_html=True)
+            cn1.markdown('<div class="lbl" style="height:160px;">備註</div>', unsafe_allow_html=True)
             n_pref = cn2.text_area("備註", label_visibility="collapsed")
 
             st.markdown("---")
@@ -643,7 +655,7 @@ with tab3:
     col_left_spacer_t3, col_main_center_t3, col_right_spacer_t3 = st.columns([1, 8, 1])
     with col_main_center_t3:
         st.markdown("### 👤 歷史訂購紀錄查詢")
-        t3_search = st.text_input("🔍 輸入姓名 / 手機 / 代號：", key="tab3_search").strip()
+        t3_search = st.text_input("🔍 輸入姓名 / 手機 / 市話 / 代號：", key="tab3_search").strip()
 
         df_cache = get_cached_customers_df()
         if t3_search:
@@ -729,7 +741,7 @@ with tab3:
                     t_r2_phone = c4.text_input("收件人2手機", value=cr2_phone, label_visibility="collapsed")
 
                     cn1, cn2 = st.columns([1.5, 8.5])
-                    cn1.markdown('<div class="lbl" style="height:140px;">備註</div>', unsafe_allow_html=True)
+                    cn1.markdown('<div class="lbl" style="height:160px;">備註</div>', unsafe_allow_html=True)
                     t_pref = cn2.text_area("備註", value=cpref, label_visibility="collapsed")
 
                     st.markdown("<br>", unsafe_allow_html=True)
@@ -805,7 +817,7 @@ with tab4:
     col_filter, _ = st.columns([3, 1])
     with col_filter:
         show_pending_only = st.checkbox("🔍 只顯示「無代號 / 待確認」的名單")
-        tab4_search = st.text_input("🔍 在總表中搜尋 (請輸入姓名、手機號碼或客戶代號)：", key="tab4_search").strip()
+        tab4_search = st.text_input("🔍 在總表中搜尋 (請輸入姓名、手機號碼、市話或客戶代號)：", key="tab4_search").strip()
 
     df_all = read_query("""
         SELECT 
@@ -823,9 +835,28 @@ with tab4:
     if not df_all.empty:
         df_filtered = df_all
         if show_pending_only: df_filtered = df_filtered[(df_filtered["客戶代號"].isna()) | (df_filtered["客戶代號"].str.strip() == "")]
+        
+        # 🌟 Tab 4 名冊總表的無敵搜尋邏輯升級
         if tab4_search:
-            search_upper = tab4_search.upper()
-            df_filtered = df_filtered[df_filtered["姓名"].str.contains(tab4_search, na=False) | df_filtered["主要手機"].str.contains(tab4_search, na=False) | df_filtered["客戶代號"].str.contains(search_upper, na=False)]
+            q_lower = tab4_search.lower()
+            q_digits = re.sub(r"[^\d]", "", q_lower)
+            if q_digits.startswith("886"): q_digits = "0" + q_digits[3:]
+            elif len(q_digits) == 9 and q_digits.startswith("9"): q_digits = "0" + q_digits
+            
+            mask = (
+                df_filtered["姓名"].str.lower().str.contains(q_lower, na=False) | 
+                df_filtered["客戶代號"].str.lower().str.contains(q_lower, na=False) |
+                df_filtered["主要手機"].astype(str).str.contains(q_lower, na=False) |
+                df_filtered["備用手機"].astype(str).str.contains(q_lower, na=False) |
+                df_filtered["市話"].astype(str).str.contains(q_lower, na=False)
+            )
+            
+            if q_digits and len(q_digits) >= 3:
+                for col in ["主要手機", "備用手機", "市話"]:
+                    col_digits = df_filtered[col].astype(str).str.replace(r"[^\d]", "", regex=True)
+                    mask = mask | col_digits.str.contains(q_digits, na=False)
+                    
+            df_filtered = df_filtered[mask]
 
         st.markdown("💡 **小提示：此總表為純檢視模式，載入最為快速。**")
         display_df = df_filtered.drop(columns=["所有訂購明細", "官網訂單", "電話訂單", "customer_id"], errors='ignore')

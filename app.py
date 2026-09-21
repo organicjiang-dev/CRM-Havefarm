@@ -29,7 +29,7 @@ ORDER_SOURCES = [
 # 🚨 採用真空壓縮 CSS，字體全面加粗 (Bold) 且修正下拉選單亂碼問題
 st.markdown("""
 <style>
-/* 🌟 1. 字體全面加粗，高度放大 (精準避開系統隱藏圖示，防止亂碼) */
+/* 🌟 字體全面加粗，高度放大 (精準避開系統隱藏圖示，防止亂碼) */
 html, body, p, label, th, td, [class*="css"] { font-size: 20px !important; font-weight: 700 !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", sans-serif !important; color: #2d3748 !important; }
 
 /* 頂部分頁導覽列 (Tabs) */
@@ -81,7 +81,7 @@ button[kind="primary"]:hover {
 }
 
 hr { margin: 20px 0 !important; border: 0 !important; border-top: 1px solid #e2e8f0 !important; }
-div.streamlit-expanderHeader { background-color: #f7fafc !important; border: 1px solid #cbd5e0 !important; border-radius: 4px !important; }
+div.streamlit-expanderHeader { background-color: #f7fafc !important; border: 1px solid #cbd5e0 !important; border-radius: 4px !important; font-size: 18px !important; font-weight: 800 !important; }
 div.streamlit-expanderHeader p { font-size: 18px !important; font-weight: 800 !important; color: #2d3748 !important; margin-bottom: 0px !important; }
 </style>
 """, unsafe_allow_html=True)
@@ -221,6 +221,33 @@ def clean_phone(p):
     elif len(s) == 9 and s.startswith("9"): s = "0" + s
     return s
 
+# 🌟 補回匯入必備的解析舊版日期代碼功能 (修復匯入錯誤)
+def parse_date_code(val_str, default_channel="官網"):
+    raw = str(val_str).strip()
+    channel = default_channel
+    code_body = raw
+
+    if raw.startswith("A") or raw.startswith("a"):
+        channel = "官網"
+        code_body = raw[1:].strip()
+    elif raw.startswith("B") or raw.startswith("b"):
+        channel = "電話訂購"
+        code_body = raw[1:].strip()
+    elif raw.startswith("L") or raw.startswith("l"):
+        channel = "LINE訂購"
+        code_body = raw[1:].strip()
+
+    match = re.search(r"(\d{2,3})[-/.]?(\d{2})[-/.]?(\d{2})", code_body)
+    if match:
+        roc_year = int(match.group(1))
+        month = int(match.group(2))
+        day = int(match.group(3))
+        ad_year = roc_year + 1911
+        standard_date = f"{ad_year:04d}-{month:02d}-{day:02d}"
+        return channel, standard_date, raw
+
+    return channel, raw, raw
+
 def search_customers_fast(query_str):
     q = str(query_str).strip()
     if not q: return []
@@ -308,7 +335,6 @@ def render_editable_orders(history_df, prefix_key):
                         st.success(f"✅ 已刪除！")
                         st.rerun()
 
-
 # --- 🌟 主介面頂部設計 (無側邊欄) ---
 col_title, col_user = st.columns([4, 1])
 with col_title:
@@ -390,24 +416,28 @@ with tab1:
                     with st.form(key=f"edit_cust_form_tab1_{cid}"):
                         st.markdown("### ✏️ 基本資料編輯")
                         
+                        # Row 1 (代號 / 統編)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">客戶代號</div>', unsafe_allow_html=True)
                         edit_code = c2.text_input("客戶代號", value=ccode, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">統編</div>', unsafe_allow_html=True)
                         edit_id_card = c4.text_input("統編", value=cid_card, label_visibility="collapsed")
                         
+                        # Row 2 (姓名 / 性別)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">姓名 *</div>', unsafe_allow_html=True)
                         edit_name = c2.text_input("姓名", value=cname, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">性別</div>', unsafe_allow_html=True)
                         edit_gender = c4.selectbox("性別", ["女", "男", "其他"], index=0 if cgender == "女" else (1 if cgender == "男" else 2), label_visibility="collapsed")
                         
+                        # Row 3 (手機 1 / 手機 2)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">手機 1 *</div>', unsafe_allow_html=True)
                         edit_phone = c2.text_input("手機 1", value=cphone, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">手機 2</div>', unsafe_allow_html=True)
                         edit_phone_bak = c4.text_input("手機 2", value=cphone_bak, label_visibility="collapsed")
                         
+                        # Row 4 (市話 1 / 市話 2)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">市話 1</div>', unsafe_allow_html=True)
                         
@@ -421,20 +451,24 @@ with tab1:
                         c3.markdown('<div class="lbl">市話 2</div>', unsafe_allow_html=True)
                         edit_tel2 = c4.text_input("市話 2", value=old_tel2, label_visibility="collapsed", placeholder="選填")
 
+                        # Row 5 (地址)
                         ca1, ca2 = st.columns([1.5, 8.5])
                         ca1.markdown('<div class="lbl">地址 *</div>', unsafe_allow_html=True)
                         edit_addr = ca2.text_input("地址", value=caddr, label_visibility="collapsed")
                         
+                        # Row 6 (第二地址)
                         ca1, ca2 = st.columns([1.5, 8.5])
                         ca1.markdown('<div class="lbl">第二地址</div>', unsafe_allow_html=True)
                         edit_r2_addr = ca2.text_input("第二地址", value=cr2_addr, label_visibility="collapsed")
                         
+                        # Row 7 (收件人2)
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">收件人2姓名</div>', unsafe_allow_html=True)
                         edit_r2_name = c2.text_input("收件人2姓名", value=cr2_name, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">收件人2手機</div>', unsafe_allow_html=True)
                         edit_r2_phone = c4.text_input("收件人2手機", value=cr2_phone, label_visibility="collapsed")
 
+                        # Row 8 (備註)
                         cn1, cn2 = st.columns([1.5, 8.5])
                         cn1.markdown('<div class="lbl" style="height:140px;">備註</div>', unsafe_allow_html=True)
                         edit_pref = cn2.text_area("備註", value=cpref, label_visibility="collapsed")
@@ -839,8 +873,94 @@ with tab4:
 with tab7:
     st.subheader("🎯 智慧回購清單與電銷追蹤戰情室")
     
-    st.markdown("#### 🔍 進階撈單：精準行銷與自訂沉睡客篩選")
-    st.info("💡 設定「最後購買日」區間，找出特定期間流失的客人。例如：設定 2024/01/01 ~ 2024/12/31，代表「最後一次買是在 2024 年，之後就再也沒買過」的客人。")
+    st.markdown("### 🔔 今日預定再訪清單")
+    today_str = date.today().strftime("%Y-%m-%d")
+    followup_df = read_query("SELECT DISTINCT c.customer_id, c.customer_code, c.name, c.phone, t.next_followup_date, t.call_status, t.call_notes FROM telemarketing_logs t JOIN customers c ON t.customer_id = c.customer_id WHERE t.next_followup_date <= :today ORDER BY t.next_followup_date ASC", {"today": today_str})
+    if followup_df.empty: 
+        st.info("🎉 目前沒有設定今天必須回訪的客戶！")
+    else: 
+        st.dataframe(followup_df.drop(columns=["customer_id"]), use_container_width=True)
+
+    st.markdown("---")
+    st.markdown("### 👑 智慧 RFM 客戶分層名單 (自動運算)")
+    st.info("系統已根據您的黃金 4 大客群邏輯，自動計算並分類客戶。請直接點擊分頁查看名單與匯出。")
+    
+    rfm_sql = """
+        SELECT 
+            c.customer_id, c.customer_code AS "客戶代號", c.name AS "姓名", c.phone AS "主要手機",
+            MAX(o.order_date) AS last_purchase_date,
+            SUM(o.amount) AS total_spent,
+            COUNT(o.order_id) AS total_orders
+        FROM customers c
+        JOIN orders o ON c.customer_id = o.customer_id
+        GROUP BY c.customer_id, c.customer_code, c.name, c.phone
+    """
+    rfm_raw = read_query(rfm_sql)
+    
+    if not rfm_raw.empty:
+        rfm_raw['last_purchase_date'] = pd.to_datetime(rfm_raw['last_purchase_date'], errors='coerce')
+        today_dt = pd.to_datetime(date.today())
+        rfm_raw['days_since'] = (today_dt - rfm_raw['last_purchase_date']).dt.days
+        
+        df_vvip = rfm_raw[(rfm_raw['total_orders'] >= 5) & (rfm_raw['total_spent'] >= 10000)].copy()
+        df_active = rfm_raw[(rfm_raw['total_orders'] >= 2) & (rfm_raw['total_orders'] <= 4) & (rfm_raw['days_since'] <= 90)].copy()
+        df_newbie = rfm_raw[(rfm_raw['total_orders'] == 1) & (rfm_raw['days_since'] >= 14) & (rfm_raw['days_since'] <= 30)].copy()
+        df_dormant = rfm_raw[rfm_raw['days_since'] >= 180].copy()
+        
+        for df_temp in [df_vvip, df_active, df_newbie, df_dormant]:
+            if not df_temp.empty:
+                df_temp['最後購買日'] = df_temp['last_purchase_date'].dt.strftime('%Y-%m-%d')
+                df_temp.rename(columns={'total_orders': '累積購買次數', 'total_spent': '歷史消費金額', 'days_since': '距離上次購買(天)'}, inplace=True)
+                df_temp.drop(columns=['customer_id', 'last_purchase_date'], inplace=True)
+        
+        mc1, mc2, mc3, mc4 = st.columns(4)
+        mc1.metric("👑 VVIP 大戶", f"{len(df_vvip)} 人")
+        mc2.metric("🔄 活躍消耗客", f"{len(df_active)} 人")
+        mc3.metric("👶 潛力首購客", f"{len(df_newbie)} 人")
+        mc4.metric("💤 180天沉睡客", f"{len(df_dormant)} 人")
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        rt1, rt2, rt3, rt4 = st.tabs(["👑 VVIP 大戶名單", "🔄 活躍消耗客名單", "👶 潛力首購客名單", "💤 180天沉睡客名單"])
+        
+        with rt1:
+            st.markdown("**定義：** 歷史總消費次數 > 5 次，且總金額 > 10,000 元。<br>**電訪策略：** 絕對不打擾，只送尊榮。以「新品免費試喝」、「大戶專屬隱藏版整箱優惠」為由致電。", unsafe_allow_html=True)
+            if df_vvip.empty: st.info("目前無符合條件的客戶。")
+            else:
+                st.dataframe(df_vvip, use_container_width=True, hide_index=True)
+                out_v = io.BytesIO()
+                with pd.ExcelWriter(out_v, engine='xlsxwriter') as w: df_vvip.to_excel(w, index=False, sheet_name='VVIP大戶')
+                st.download_button("📥 匯出 VVIP 大戶名單", out_v.getvalue(), "有其田_VVIP大戶名單.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+        with rt2:
+            st.markdown("**定義：** 過去 90 天內有購買，且累積購買 2-4 次的客人。<br>**電訪策略：** 算準消耗週期。例：「王小姐，上次買的藜麥片應該快喝完了，這週剛好有免運補貨活動...」", unsafe_allow_html=True)
+            if df_active.empty: st.info("目前無符合條件的客戶。")
+            else:
+                st.dataframe(df_active, use_container_width=True, hide_index=True)
+                out_a = io.BytesIO()
+                with pd.ExcelWriter(out_a, engine='xlsxwriter') as w: df_active.to_excel(w, index=False, sheet_name='活躍消耗客')
+                st.download_button("📥 匯出 活躍消耗客名單", out_a.getvalue(), "有其田_活躍消耗客名單.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+        with rt3:
+            st.markdown("**定義：** 只買過 1 次，購買時間在 14-30 天內的客人。<br>**電訪策略：** 售後關懷建立信任感。主動詢問口味習不習慣，並順勢給予「首購專屬 30 天內回購券」。", unsafe_allow_html=True)
+            if df_newbie.empty: st.info("目前無符合條件的客戶。")
+            else:
+                st.dataframe(df_newbie, use_container_width=True, hide_index=True)
+                out_n = io.BytesIO()
+                with pd.ExcelWriter(out_n, engine='xlsxwriter') as w: df_newbie.to_excel(w, index=False, sheet_name='潛力首購客')
+                st.download_button("📥 匯出 潛力首購客名單", out_n.getvalue(), "有其田_潛力首購客名單.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+        with rt4:
+            st.markdown("**定義：** 超過 180 天未購買的客人。<br>**電訪策略：** 震撼性誘因喚醒。例如：「老朋友回娘家，直接送 300 元購物金」或「清倉破盤價」。", unsafe_allow_html=True)
+            if df_dormant.empty: st.info("目前無符合條件的客戶。")
+            else:
+                st.dataframe(df_dormant, use_container_width=True, hide_index=True)
+                out_d = io.BytesIO()
+                with pd.ExcelWriter(out_d, engine='xlsxwriter') as w: df_dormant.to_excel(w, index=False, sheet_name='沉睡客')
+                st.download_button("📥 匯出 180天沉睡客名單", out_d.getvalue(), "有其田_沉睡客名單.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+    st.markdown("---")
+    st.markdown("### 🔍 進階撈單：自訂行銷名單篩選")
+    st.info("💡 設定「最後購買日」區間，找出特定期間流失的客人。例如：設定 2024/01/01 ~ 2024/12/31，代表「最後一次買是在 2024 年，之後就沒買過」的客人。")
     
     with st.form("advanced_filter_form"):
         col_f1, col_f2, col_f3 = st.columns(3)
@@ -854,7 +974,7 @@ with tab7:
         st.markdown("<br>", unsafe_allow_html=True)
         btn_f1, btn_f2, btn_f3 = st.columns([3, 4, 3])
         with btn_f2:
-            filter_btn = st.form_submit_button("🔍 撈出精準電訪名單", type="primary", use_container_width=True)
+            filter_btn = st.form_submit_button("🔍 撈出精準自訂名單", type="primary", use_container_width=True)
         
     if filter_btn:
         if filter_start > filter_end:
@@ -885,11 +1005,7 @@ with tab7:
                   AND total_spent >= :min_amt
                 ORDER BY "歷史消費金額" DESC, "最後購買日" DESC
             """
-            adv_df = read_query(adv_sql, {
-                "s_date": str(filter_start), 
-                "e_date": str(filter_end), 
-                "min_amt": min_amount
-            })
+            adv_df = read_query(adv_sql, {"s_date": str(filter_start), "e_date": str(filter_end), "min_amt": min_amount})
             
             if adv_df.empty:
                 st.warning("⚠️ 查無符合條件的客戶名單。")
@@ -900,20 +1016,7 @@ with tab7:
                 adv_out = io.BytesIO()
                 with pd.ExcelWriter(adv_out, engine='xlsxwriter') as w:
                     adv_df.to_excel(w, index=False, sheet_name='精準電訪名單')
-                st.download_button(
-                    "📥 下載此精準電訪名單 (XLSX)", 
-                    adv_out.getvalue(), 
-                    f"有其田_精準電訪名單_{filter_start}至{filter_end}.xlsx", 
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    type="primary"
-                )
-
-    st.markdown("---")
-    today_str = date.today().strftime("%Y-%m-%d")
-    st.markdown("#### 🔔 今日預定再訪清單")
-    followup_df = read_query("SELECT DISTINCT c.customer_id, c.customer_code, c.name, c.phone, t.next_followup_date, t.call_status, t.call_notes FROM telemarketing_logs t JOIN customers c ON t.customer_id = c.customer_id WHERE t.next_followup_date <= :today ORDER BY t.next_followup_date ASC", {"today": today_str})
-    if followup_df.empty: st.info("🎉 目前沒有設定今天必須回訪的客戶！")
-    else: st.dataframe(followup_df.drop(columns=["customer_id"]), use_container_width=True)
+                st.download_button("📥 下載此精準自訂名單 (XLSX)", adv_out.getvalue(), f"有其田_精準電訪名單_{filter_start}至{filter_end}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary")
 
 # ==========================================
 # TAB 6: 期間訂單報表與電銷績效匯出

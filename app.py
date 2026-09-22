@@ -23,6 +23,7 @@ ORDER_SOURCES = [
     "LINE 訂購", 
     "廣播", 
     "簡訊", 
+    "官網edm",
     "其他"
 ]
 

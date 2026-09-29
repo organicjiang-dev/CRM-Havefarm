@@ -17,6 +17,7 @@ ORDER_SOURCES = [
     "FB 再行銷", 
     "FB 新客", 
     "FB 自然貼文", 
+    "Google 自然搜尋", 
     "Google 關鍵字搜尋", 
     "Google PMAX 廣告", 
     "Google Demand Gen", 

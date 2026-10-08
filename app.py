@@ -13,31 +13,81 @@ from email.mime.text import MIMEText
 # --- 0. 設定頁面配置與極簡大格子 CSS ---
 st.set_page_config(page_title="有其田 客服 CRM 系統", layout="wide", page_icon="🌾")
 
-# 🔥 訂單來源選項
+# 🔥 訂單來源選項 (已更新最新 14 項管道)
 ORDER_SOURCES = [
-    "未指定 / 自然流量", "FB 再行銷", "FB 新客", "FB 自然貼文", 
-    "Google 自然搜尋", "Google 關鍵字搜尋", "Google PMAX 廣告", 
-    "Google Demand Gen", "LINE 私訊訂", "LINE 官網訂", 
-    "廣播", "簡訊", "官網edm", "其他"
+    "未指定 / 自然流量", 
+    "FB 再行銷", 
+    "FB 新客", 
+    "FB 自然貼文", 
+    "Google 自然搜尋", 
+    "Google 關鍵字搜尋", 
+    "Google PMAX 廣告", 
+    "Google Demand Gen", 
+    "LINE 私訊訂", 
+    "LINE 官網訂", 
+    "廣播", 
+    "簡訊", 
+    "官網edm",
+    "其他"
 ]
 
-# 🚨 採用真空壓縮 CSS，字體全面加粗
+# 🚨 採用真空壓縮 CSS，字體全面加粗 (Bold) 且修正下拉選單亂碼問題
 st.markdown("""
 <style>
+/* 🌟 字體全面加粗，高度放大 (精準避開系統隱藏圖示，防止亂碼) */
 html, body, p, label, th, td, [class*="css"] { font-size: 20px !important; font-weight: 700 !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", sans-serif !important; color: #2d3748 !important; }
+
+/* 隱藏用來寫入 Cookie 的 0 高度 iframe */
 iframe[height="0"] { display: none !important; }
+
+/* 頂部分頁導覽列 (Tabs) */
 div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { gap: 4px !important; padding-top: 10px !important; padding-bottom: 5px !important; }
 div[data-testid="stTabs"] button[data-baseweb="tab"] { font-size: 20px !important; font-weight: 800 !important; background-color: #f8fafc !important; border-radius: 4px 4px 0 0 !important; border: 1px solid #cbd5e0 !important; border-bottom: none !important; padding: 10px 20px !important; }
 div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] { border-top: 5px solid #e53e3e !important; background-color: #ffffff !important; }
+
+/* 標題與文字 (特粗體) */
 h1 { font-size: 32px !important; font-weight: 900 !important; margin-bottom: 10px !important; }
 h3 { font-size: 24px !important; font-weight: 900 !important; margin-top: 5px !important; margin-bottom: 10px !important; color: #2b6cb0 !important; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; }
+
+/* 輸入框放大緊湊化 (高度 50px) */
 input[type="text"], input[type="password"], input[type="number"], select, div[data-baseweb="select"] > div { font-size: 20px !important; font-weight: 700 !important; min-height: 50px !important; border-radius: 4px !important; border: 1px solid #a0aec0 !important; padding: 6px 12px !important; background-color: #ffffff !important; color: #1a202c !important; }
 div[data-testid="stInputValue"] { min-height: 50px !important; }
 textarea { font-size: 20px !important; font-weight: 700 !important; min-height: 140px !important; line-height: 1.5 !important; border: 1px solid #a0aec0 !important; border-radius: 4px !important; }
+
+/* 一般按鈕 */
 .stButton > button { min-height: 50px !important; font-size: 20px !important; font-weight: 900 !important; border-radius: 6px !important; border: 1px solid #cbd5e0 !important; }
-button[kind="primary"] { background-color: rgba(190, 227, 248, 0.5) !important; color: #2b6cb0 !important; border: 2px solid #90cdf4 !important; font-size: 20px !important; font-weight: 900 !important; border-radius: 6px !important; }
-button[kind="primary"]:hover { background-color: rgba(190, 227, 248, 0.8) !important; border: 2px solid #63b3ed !important; color: #1e3a8a !important; }
-.lbl { background-color: rgba(190, 227, 248, 0.5); color: #2a4365; font-weight: 900 !important; font-size: 18px; text-align: center; border: 1px solid #90cdf4; border-radius: 4px; height: 50px; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+
+/* 儲存按鈕專屬跳色設計 (淺藍半透明背景 + 藍色文字) */
+button[kind="primary"] {
+    background-color: rgba(190, 227, 248, 0.5) !important; 
+    color: #2b6cb0 !important; 
+    border: 2px solid #90cdf4 !important;
+    font-size: 20px !important;
+    font-weight: 900 !important;
+    border-radius: 6px !important;
+}
+button[kind="primary"]:hover {
+    background-color: rgba(190, 227, 248, 0.8) !important;
+    border: 2px solid #63b3ed !important;
+    color: #1e3a8a !important;
+}
+
+/* 水平排版的 Label 樣式 (淺藍色半透明背景塊) */
+.lbl { 
+    background-color: rgba(190, 227, 248, 0.5); 
+    color: #2a4365; 
+    font-weight: 900 !important; 
+    font-size: 18px; 
+    text-align: center; 
+    border: 1px solid #90cdf4;
+    border-radius: 4px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+}
+
 hr { margin: 20px 0 !important; border: 0 !important; border-top: 1px solid #e2e8f0 !important; }
 div.streamlit-expanderHeader { background-color: #f7fafc !important; border: 1px solid #cbd5e0 !important; border-radius: 4px !important; font-size: 18px !important; font-weight: 800 !important; }
 div.streamlit-expanderHeader p { font-size: 18px !important; font-weight: 800 !important; color: #2d3748 !important; margin-bottom: 0px !important; }
@@ -209,10 +259,10 @@ def format_export_order(dstr, channel_prefix):
 
 @st.cache_data(ttl=600, show_spinner=False)
 def generate_tab4_excel_cached(df_filtered):
-    """將 Tab 4 複雜的 Excel 轉換邏輯封裝並加入快取，避免每次按鈕點擊都重跑 30 秒"""
+    """將 Tab 4 複雜的 Excel 轉換邏輯封裝並加入快取"""
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        base_cols = ["客戶代號", "姓名", "顧客來源", "性別", "主要手機", "備用手機", "市話", "常用地址", "最後購買管道", "總購買次數", "歷史消費金額", "最後購買日"]
+        base_cols = ["客戶代號", "姓名", "收件人2姓名", "顧客來源", "性別", "主要手機", "備用手機", "收件人2手機", "市話", "常用地址", "最後購買管道", "總購買次數", "歷史消費金額", "最後購買日"]
         
         export_all = df_filtered[base_cols + ["所有訂購明細"]].copy()
         export_all["所有訂購明細"] = export_all["所有訂購明細"].fillna("")
@@ -277,7 +327,7 @@ def get_cached_tab4_report():
         ), LastChannel AS (
             SELECT DISTINCT ON (customer_id) customer_id, channel FROM orders ORDER BY customer_id, order_date DESC, order_id DESC
         )
-        SELECT c.customer_id, c.customer_code AS "客戶代號", c.name AS "姓名", c.customer_source AS "顧客來源", c.gender AS "性別", c.phone AS "主要手機", c.phone_backup AS "備用手機", c.tel AS "市話", c.address AS "常用地址", COALESCE(lc.channel, '') AS "最後購買管道", COALESCE(oa.total_orders, 0) AS "總購買次數", COALESCE(oa.total_spent, 0) AS "歷史消費金額", oa.last_order_date AS "最後購買日", oa.all_dates AS "所有訂購明細", oa.web_dates AS "官網訂單", oa.phone_dates AS "電話訂單"
+        SELECT c.customer_id, c.customer_code AS "客戶代號", c.name AS "姓名", c.recipient2_name AS "收件人2姓名", c.recipient2_phone AS "收件人2手機", c.customer_source AS "顧客來源", c.gender AS "性別", c.phone AS "主要手機", c.phone_backup AS "備用手機", c.tel AS "市話", c.address AS "常用地址", COALESCE(lc.channel, '') AS "最後購買管道", COALESCE(oa.total_orders, 0) AS "總購買次數", COALESCE(oa.total_spent, 0) AS "歷史消費金額", oa.last_order_date AS "最後購買日", oa.all_dates AS "所有訂購明細", oa.web_dates AS "官網訂單", oa.phone_dates AS "電話訂單"
         FROM customers c LEFT JOIN OrderAgg oa ON c.customer_id = oa.customer_id LEFT JOIN LastChannel lc ON c.customer_id = lc.customer_id
         ORDER BY c.customer_code DESC, c.customer_id DESC
     """)
@@ -317,13 +367,23 @@ def parse_date_code(val_str, default_channel="官網"):
     if match: return channel, f"{int(match.group(1)) + 1911:04d}-{int(match.group(2)):02d}-{int(match.group(3)):02d}", raw
     return channel, raw, raw
 
+# 🌟 全域無敵搜尋：包含「收件人2」姓名與手機
 def search_customers_fast(query_str):
     q = str(query_str).strip()
     if not q: return []
     df = get_cached_customers_df()
     if df.empty: return []
     q_lower = q.lower()
-    mask = (df['name'].str.lower().str.contains(q_lower, na=False) | df['customer_code'].str.lower().str.contains(q_lower, na=False) | df['phone'].astype(str).str.contains(q_lower, na=False) | df['phone_backup'].astype(str).str.contains(q_lower, na=False) | df['tel'].astype(str).str.contains(q_lower, na=False) | df['recipient2_phone'].astype(str).str.contains(q_lower, na=False))
+    
+    # 新增 df['recipient2_name'] 進入搜尋範圍
+    mask = (df['name'].str.lower().str.contains(q_lower, na=False) | 
+            df['customer_code'].str.lower().str.contains(q_lower, na=False) | 
+            df['recipient2_name'].str.lower().str.contains(q_lower, na=False) | 
+            df['phone'].astype(str).str.contains(q_lower, na=False) | 
+            df['phone_backup'].astype(str).str.contains(q_lower, na=False) | 
+            df['tel'].astype(str).str.contains(q_lower, na=False) | 
+            df['recipient2_phone'].astype(str).str.contains(q_lower, na=False))
+    
     q_digits = re.sub(r"[^\d]", "", q_lower)
     if q_digits and len(q_digits) >= 3:
         if q_digits.startswith("886"): q_digits = "0" + q_digits[3:]
@@ -421,7 +481,7 @@ with tab1:
         st.markdown("### 🔍 客戶資料查詢")
         default_search = st.session_state.jump_search_query
         if default_search: st.session_state.jump_search_query = ""
-        search_query = st.text_input("輸入 姓名 / 手機 / 市話 / 統編 / 代號 進行速查：", value=default_search, placeholder="例：蔡汶容、0912345678、02-27421020", key="accurate_cust_search").strip()
+        search_query = st.text_input("輸入 姓名 / 收件人2 / 手機 / 市話 / 代號 進行速查：", value=default_search, placeholder="例：蔡汶容、0912345678、02-27421020", key="accurate_cust_search").strip()
         if search_query:
             matched_custs = search_customers_fast(search_query)
             if not matched_custs: st.warning(f"⚠ 查無此人！請至【🆕 建立新名單】建檔。")
@@ -559,7 +619,7 @@ with tab3:
     col_left_spacer_t3, col_main_center_t3, col_right_spacer_t3 = st.columns([1, 8, 1])
     with col_main_center_t3:
         st.markdown("### 👤 歷史訂購紀錄查詢")
-        t3_search = st.text_input("🔍 輸入姓名 / 手機 / 市話 / 代號：", key="tab3_search").strip()
+        t3_search = st.text_input("🔍 輸入姓名 / 收件人2 / 手機 / 市話 / 代號：", key="tab3_search").strip()
         df_cache = get_cached_customers_df()
         c_opts = {f"[{c[1] if str(c[1]).strip() else '待查'}] {c[2]} ({c[5]})": c[0] for c in search_customers_fast(t3_search)} if t3_search else {f"[{row['customer_code']}] {row['name']} ({row['phone']})": row['customer_id'] for _, row in df_cache.iterrows()}
         if c_opts:
@@ -631,7 +691,7 @@ with tab4:
     col_filter, _ = st.columns([3, 1])
     with col_filter:
         show_pending_only = st.checkbox("🔍 只顯示「無代號 / 待確認」的名單")
-        tab4_search = st.text_input("🔍 在總表中搜尋 (請輸入姓名、手機號碼、市話或客戶代號)：", key="tab4_search").strip()
+        tab4_search = st.text_input("🔍 在總表中搜尋 (可搜姓名、收件人2、手機、市話或代號)：", key="tab4_search").strip()
 
     df_all = get_cached_tab4_report()
 
@@ -643,9 +703,19 @@ with tab4:
             q_digits = re.sub(r"[^\d]", "", q_lower)
             if q_digits.startswith("886"): q_digits = "0" + q_digits[3:]
             elif len(q_digits) == 9 and q_digits.startswith("9"): q_digits = "0" + q_digits
-            mask = (df_filtered["姓名"].str.lower().str.contains(q_lower, na=False) | df_filtered["客戶代號"].str.lower().str.contains(q_lower, na=False) | df_filtered["主要手機"].astype(str).str.contains(q_lower, na=False) | df_filtered["備用手機"].astype(str).str.contains(q_lower, na=False) | df_filtered["市話"].astype(str).str.contains(q_lower, na=False))
+            
+            # 🌟 新增收件人2姓名、收件人2手機 進入總表搜尋過濾
+            mask = (
+                df_filtered["姓名"].str.lower().str.contains(q_lower, na=False) | 
+                df_filtered["收件人2姓名"].str.lower().str.contains(q_lower, na=False) |
+                df_filtered["客戶代號"].str.lower().str.contains(q_lower, na=False) | 
+                df_filtered["主要手機"].astype(str).str.contains(q_lower, na=False) | 
+                df_filtered["備用手機"].astype(str).str.contains(q_lower, na=False) |
+                df_filtered["收件人2手機"].astype(str).str.contains(q_lower, na=False) |
+                df_filtered["市話"].astype(str).str.contains(q_lower, na=False)
+            )
             if q_digits and len(q_digits) >= 3:
-                for col in ["主要手機", "備用手機", "市話"]:
+                for col in ["主要手機", "備用手機", "收件人2手機", "市話"]:
                     col_digits = df_filtered[col].astype(str).str.replace(r"[^\d]", "", regex=True)
                     mask = mask | col_digits.str.contains(q_digits, na=False)
             df_filtered = df_filtered[mask]
@@ -655,7 +725,6 @@ with tab4:
         st.dataframe(display_df, use_container_width=True, hide_index=True)
         st.markdown("---")
         
-        # 🚀 套用懶加載快取引擎
         excel_data = generate_tab4_excel_cached(df_filtered)
         st.download_button(label="📥 匯出精準分類名冊", data=excel_data, file_name="有其田_客戶完整名冊.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary")
     else: st.info("尚無客戶資料。")
@@ -759,7 +828,7 @@ with tab7:
                 st.download_button("📥 下載此精準自訂名單 (XLSX)", df_to_excel_cached(adv_df, '精準電訪名單'), f"有其田_精準電訪名單_{filter_start}至{filter_end}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary")
 
 # ==========================================
-# TAB 6: 期間訂單報表與電銷績效匯出 (🚀 全自動秒出表)
+# TAB 6: 期間訂單報表與電銷績效匯出
 # ==========================================
 with tab6:
     st.subheader("📅 期間訂單紀錄與電話行銷成效報表")

@@ -1,17 +1,19 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 from sqlalchemy import create_engine, text
 from datetime import datetime, date, timedelta
 import io
 import re
 import random
+import hashlib
 import smtplib
 from email.mime.text import MIMEText
 
 # --- 0. 設定頁面配置與極簡大格子 CSS ---
 st.set_page_config(page_title="有其田 客服 CRM 系統", layout="wide", page_icon="🌾")
 
-# 🔥 訂單來源選項
+# 🔥 訂單來源選項 (已更新最新 14 項管道)
 ORDER_SOURCES = [
     "未指定 / 自然流量", 
     "FB 再行銷", 
@@ -34,6 +36,9 @@ st.markdown("""
 <style>
 /* 🌟 字體全面加粗，高度放大 (精準避開系統隱藏圖示，防止亂碼) */
 html, body, p, label, th, td, [class*="css"] { font-size: 20px !important; font-weight: 700 !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", sans-serif !important; color: #2d3748 !important; }
+
+/* 隱藏用來寫入 Cookie 的 0 高度 iframe */
+iframe[height="0"] { display: none !important; }
 
 /* 頂部分頁導覽列 (Tabs) */
 div[data-testid="stTabs"] > div[data-baseweb="tab-list"] { gap: 4px !important; padding-top: 10px !important; padding-bottom: 5px !important; }
@@ -89,7 +94,7 @@ div.streamlit-expanderHeader p { font-size: 18px !important; font-weight: 800 !i
 </style>
 """, unsafe_allow_html=True)
 
-# --- 1. 自動發送驗證信模組 ---
+# --- 1. 自動發送驗證信與 5 天通行證加密模組 ---
 def send_auth_code(to_email, code):
     sender = st.secrets["EMAIL_SENDER"]
     pwd = st.secrets["EMAIL_PASSWORD"].replace(" ", "")
@@ -107,13 +112,83 @@ def send_auth_code(to_email, code):
         st.error(f"發送驗證碼信件失敗，請聯絡系統管理員。錯誤細節：{e}")
         return False
 
-# --- 2. 雙重認證登入系統 ---
+def make_auth_token(user, login_date_str=None):
+    if not login_date_str:
+        login_date_str = date.today().strftime("%Y%m%d")
+    secret_salt = st.secrets.get("EMAIL_PASSWORD", "havefarm_crm_key")
+    raw = f"{user}::{login_date_str}::{secret_salt}::havefarm_5days_v1"
+    sig = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:20]
+    return f"{login_date_str}:{sig}"
+
+def verify_auth_token(auth_str):
+    if not auth_str or ":" not in str(auth_str):
+        return None, None
+    parts = str(auth_str).split(":")
+    if len(parts) != 3:
+        return None, None
+    user, login_date_str, sig = parts[0].strip(), parts[1].strip(), parts[2].strip()
+    AUTH_USERS = st.secrets["crm_users"]
+    if user not in AUTH_USERS:
+        return None, None
+    try:
+        login_dt = datetime.strptime(login_date_str, "%Y%m%d").date()
+        # 🌟 檢查是否超過 5 天
+        if (date.today() - login_dt).days >= 5 or (date.today() - login_dt).days < 0:
+            return None, None
+    except Exception:
+        return None, None
+
+    expected_token = make_auth_token(user, login_date_str)
+    if f"{login_date_str}:{sig}" == expected_token:
+        return user, expected_token
+    return None, None
+
+def set_browser_auth_cookie(user, token):
+    val = f"{user}:{token}"
+    # 🌟 max-age=432000 代表 5 天 (5 * 24 * 60 * 60 秒)
+    components.html(f"""
+        <script>
+        try {{
+            window.parent.document.cookie = "crm_auth={val}; path=/; max-age=432000; SameSite=Lax";
+        }} catch(e) {{}}
+        </script>
+    """, height=0)
+
+def clear_browser_auth_cookie():
+    components.html("""
+        <script>
+        try {
+            window.parent.document.cookie = "crm_auth=; path=/; max-age=0; SameSite=Lax";
+        } catch(e) {}
+        </script>
+    """, height=0)
+
+# --- 2. 雙重認證登入系統 (支援 5 天免登出) ---
 def check_login():
     if "logged_in" not in st.session_state:
         st.session_state.logged_in = False
         st.session_state.username = ""
+        st.session_state.auth_token = ""
         st.session_state.pwd_verified = False
         st.session_state.auth_code = ""
+        st.session_state.manual_logout = False
+
+    # 🌟 自動檢查網址通行證或瀏覽器 5 天 Cookie，實現免重複登入
+    if not st.session_state.logged_in and not st.session_state.manual_logout:
+        auth_token_str = st.query_params.get("auth", "")
+        if not auth_token_str:
+            try:
+                auth_token_str = st.context.cookies.get("crm_auth", "")
+            except Exception:
+                auth_token_str = ""
+        
+        valid_user, valid_token = verify_auth_token(auth_token_str)
+        if valid_user and valid_token:
+            st.session_state.logged_in = True
+            st.session_state.username = valid_user
+            st.session_state.auth_token = valid_token
+            st.query_params["auth"] = f"{valid_user}:{valid_token}"
+
     if st.session_state.logged_in:
         return True
 
@@ -125,12 +200,13 @@ def check_login():
             with st.form("login_form"):
                 user_input = st.text_input("客服人員帳號", placeholder="請輸入帳號").strip()
                 pass_input = st.text_input("登入密碼", type="password", placeholder="請輸入密碼").strip()
-                login_btn = st.form_submit_button("🔐 進行身分驗證")
+                login_btn = st.form_submit_button("🔐 進行身分驗證", type="primary")
                 if login_btn:
                     AUTH_USERS = st.secrets["crm_users"]
                     if user_input in AUTH_USERS and AUTH_USERS[user_input] == pass_input:
                         st.session_state.username = user_input
                         st.session_state.pwd_verified = True
+                        st.session_state.manual_logout = False
                         code = str(random.randint(100000, 999999))
                         st.session_state.auth_code = code
                         RECEIVER_EMAILS = st.secrets["crm_emails"]
@@ -146,12 +222,17 @@ def check_login():
             return False
         else:
             with st.form("2fa_form"):
-                code_input = st.text_input("請輸入 6 位數驗證碼", placeholder="例如：123456").strip()
-                verify_btn = st.form_submit_button("🚀 確認並登入系統")
+                code_input = st.text_input("請輸入 6 位數驗證碼（登入後將自動保持登入 5 天）", placeholder="例如：123456").strip()
+                verify_btn = st.form_submit_button("🚀 確認並登入系統", type="primary")
                 cancel_btn = st.form_submit_button("返回重新登入")
                 if verify_btn:
                     if code_input == st.session_state.auth_code:
                         st.session_state.logged_in = True
+                        st.session_state.manual_logout = False
+                        user = st.session_state.username
+                        token = make_auth_token(user)
+                        st.session_state.auth_token = token
+                        st.query_params["auth"] = f"{user}:{token}"
                         st.success("✅ 雙重驗證成功，正在進入系統...")
                         st.rerun()
                     else:
@@ -164,6 +245,10 @@ def check_login():
 
 if not check_login():
     st.stop()
+
+# 確保寫入瀏覽器 5 天 Cookie
+if st.session_state.get("auth_token"):
+    set_browser_auth_cookie(st.session_state.username, st.session_state.auth_token)
 
 # ==================== 以下為系統主要功能 ====================
 
@@ -272,12 +357,10 @@ def search_customers_fast(query_str):
     # 2. 智慧純數字去敏比對 (無視 - 或 空格，全方位涵蓋 手機1/2、市話1/2)
     q_digits = re.sub(r"[^\d]", "", q_lower)
     if q_digits and len(q_digits) >= 3:
-        # 防呆機制：去除 886 等開頭干擾
         if q_digits.startswith("886"): q_digits = "0" + q_digits[3:]
         elif len(q_digits) == 9 and q_digits.startswith("9"): q_digits = "0" + q_digits
         
         for col in ['phone', 'phone_backup', 'tel', 'recipient2_phone']:
-            # 把資料庫該欄位的符號全部拔掉，只留純數字進行比對
             col_digits = df[col].astype(str).str.replace(r"[^\d]", "", regex=True)
             mask = mask | col_digits.str.contains(q_digits, na=False)
             
@@ -367,8 +450,12 @@ with col_user:
     if st.button("🚪 登出系統", use_container_width=True):
         st.session_state.logged_in = False
         st.session_state.username = ""
+        st.session_state.auth_token = ""
         st.session_state.pwd_verified = False
         st.session_state.auth_code = ""
+        st.session_state.manual_logout = True
+        st.query_params.clear()
+        clear_browser_auth_cookie()
         st.rerun()
 
 if "jump_search_query" not in st.session_state:
@@ -401,7 +488,7 @@ with tab1:
         if search_query:
             matched_custs = search_customers_fast(search_query)
             if not matched_custs:
-                st.warning(f"⚠️ 查無此人！請至【🆕 建立新名單】建檔。")
+                st.warning(f"⚠ 查無此人！請至【🆕 建立新名單】建檔。")
             else:
                 if len(matched_custs) > 1:
                     cust_options = {f"[{c[1] if str(c[1]).strip() else '待查'}] {c[2]} ({c[5]})": c[0] for c in matched_custs}
@@ -839,7 +926,6 @@ with tab4:
         df_filtered = df_all
         if show_pending_only: df_filtered = df_filtered[(df_filtered["客戶代號"].isna()) | (df_filtered["客戶代號"].str.strip() == "")]
         
-        # 🌟 Tab 4 名冊總表的無敵搜尋邏輯升級
         if tab4_search:
             q_lower = tab4_search.lower()
             q_digits = re.sub(r"[^\d]", "", q_lower)
@@ -1218,7 +1304,7 @@ with tab5:
                 execute_query("""
                     DELETE FROM orders o1 WHERE o1.amount = 0 AND EXISTS (SELECT 1 FROM orders o2 WHERE o2.customer_id = o1.customer_id AND o2.order_date = o1.order_date AND o2.order_id != o1.order_id AND o2.amount > 0);
                 """)
-                st.success("✅ 已經成功清除了所有重複的 0 元佔位訂單！")
+                st.success("✅ 已經成功清清除所有重複的 0 元佔位訂單！")
                 st.cache_data.clear()
             except Exception as e:
                 st.error(f"清理失敗：{e}")

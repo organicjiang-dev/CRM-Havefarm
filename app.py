@@ -195,7 +195,7 @@ def check_login():
             return False
         else:
             with st.form("2fa_form"):
-                code_input = st.text_input("請輸入 6 位數驗證碼（登入後將自動保持登入 5 天）", placeholder="例如：123456").strip()
+                code_input = st.text_input("請輸入 6 位數驗證碼", placeholder="例如：123456").strip()
                 verify_btn = st.form_submit_button("🚀 確認並登入系統", type="primary")
                 cancel_btn = st.form_submit_button("返回重新登入")
                 if verify_btn:
@@ -481,7 +481,7 @@ with tab1:
         st.markdown("### 🔍 客戶資料查詢")
         default_search = st.session_state.jump_search_query
         if default_search: st.session_state.jump_search_query = ""
-        search_query = st.text_input("輸入 姓名 / 收件人2 / 手機 / 市話 / 代號 進行速查：", value=default_search, placeholder="例：蔡汶容、0912345678、02-27421020", key="accurate_cust_search").strip()
+        search_query = st.text_input("輸入 姓名 / 手機 / 市話 / 代號 進行速查：", value=default_search, placeholder="例：蔡汶容、0912345678、02-27421020", key="accurate_cust_search").strip()
         if search_query:
             matched_custs = search_customers_fast(search_query)
             if not matched_custs: st.warning(f"⚠ 查無此人！請至【🆕 建立新名單】建檔。")

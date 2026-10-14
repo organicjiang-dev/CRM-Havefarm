@@ -195,7 +195,7 @@ def check_login():
             return False
         else:
             with st.form("2fa_form"):
-                code_input = st.text_input("請輸入 6 位數驗證碼", placeholder="例如：123456").strip()
+                code_input = st.text_input("請輸入 6 位數驗證碼（登入後將自動保持登入 5 天）", placeholder="例如：123456").strip()
                 verify_btn = st.form_submit_button("🚀 確認並登入系統", type="primary")
                 cancel_btn = st.form_submit_button("返回重新登入")
                 if verify_btn:
@@ -375,7 +375,6 @@ def search_customers_fast(query_str):
     if df.empty: return []
     q_lower = q.lower()
     
-    # 新增 df['recipient2_name'] 進入搜尋範圍
     mask = (df['name'].str.lower().str.contains(q_lower, na=False) | 
             df['customer_code'].str.lower().str.contains(q_lower, na=False) | 
             df['recipient2_name'].str.lower().str.contains(q_lower, na=False) | 
@@ -481,7 +480,7 @@ with tab1:
         st.markdown("### 🔍 客戶資料查詢")
         default_search = st.session_state.jump_search_query
         if default_search: st.session_state.jump_search_query = ""
-        search_query = st.text_input("輸入 姓名 / 手機 / 市話 / 代號 進行速查：", value=default_search, placeholder="例：蔡汶容、0912345678、02-27421020", key="accurate_cust_search").strip()
+        search_query = st.text_input("輸入 姓名 / 收件人2 / 手機 / 市話 / 代號 進行速查：", value=default_search, placeholder="例：蔡汶容、0912345678、02-27421020", key="accurate_cust_search").strip()
         if search_query:
             matched_custs = search_customers_fast(search_query)
             if not matched_custs: st.warning(f"⚠ 查無此人！請至【🆕 建立新名單】建檔。")
@@ -510,7 +509,8 @@ with tab1:
                         c1.markdown('<div class="lbl">姓名 *</div>', unsafe_allow_html=True); edit_name = c2.text_input("姓名", value=cname, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">性別</div>', unsafe_allow_html=True); edit_gender = c4.selectbox("性別", ["女", "男", "其他"], index=0 if cgender == "女" else (1 if cgender == "男" else 2), label_visibility="collapsed")
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
-                        c1.markdown('<div class="lbl">手機 1 *</div>', unsafe_allow_html=True); edit_phone = c2.text_input("手機 1", value=cphone, label_visibility="collapsed")
+                        # 🌟 移除原先在 UI 上的 * 星號強制感
+                        c1.markdown('<div class="lbl">手機 1</div>', unsafe_allow_html=True); edit_phone = c2.text_input("手機 1", value=cphone, label_visibility="collapsed")
                         c3.markdown('<div class="lbl">手機 2</div>', unsafe_allow_html=True); edit_phone_bak = c4.text_input("手機 2", value=cphone_bak, label_visibility="collapsed")
                         c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                         c1.markdown('<div class="lbl">市話 1</div>', unsafe_allow_html=True)
@@ -530,8 +530,11 @@ with tab1:
                         st.markdown("<br>", unsafe_allow_html=True)
                         btn_c1, btn_c2, btn_c3 = st.columns([3, 4, 3])
                         with btn_c2: save_cust_btn = st.form_submit_button("💾 儲存資料", type="primary", use_container_width=True)
+                        
                         if save_cust_btn:
-                            if not edit_name or not edit_phone or not edit_addr: st.error("姓名、手機 1 與地址不可為空！")
+                            # 🌟 彈性驗證：只要有「手機 1」或「市話 1」就可以存檔
+                            if not edit_name or (not edit_phone.strip() and not edit_tel.strip()) or not edit_addr: 
+                                st.error("❌ 姓名、地址不可為空，且『手機 1』與『市話 1』至少需填寫一項！")
                             else:
                                 final_tel = edit_tel.strip() + (f" / {edit_tel2.strip()}" if edit_tel2.strip() else "")
                                 update_customer_db(cid, edit_code, edit_name, edit_gender, edit_id_card, edit_phone, edit_phone_bak, final_tel, cemail, edit_addr, edit_r2_name, edit_r2_phone, edit_r2_addr, edit_pref, csource)
@@ -573,7 +576,8 @@ with tab2:
             c1.markdown('<div class="lbl">姓名 *</div>', unsafe_allow_html=True); n_name = c2.text_input("姓名", label_visibility="collapsed")
             c3.markdown('<div class="lbl">性別</div>', unsafe_allow_html=True); n_gender = c4.selectbox("性別", ["女", "男", "其他"], label_visibility="collapsed")
             c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
-            c1.markdown('<div class="lbl">手機 1 *</div>', unsafe_allow_html=True); n_phone = c2.text_input("手機 1", label_visibility="collapsed")
+            # 🌟 移除原先在 UI 上的 * 星號強制感
+            c1.markdown('<div class="lbl">手機 1</div>', unsafe_allow_html=True); n_phone = c2.text_input("手機 1", label_visibility="collapsed")
             c3.markdown('<div class="lbl">手機 2</div>', unsafe_allow_html=True); n_phone_bak = c4.text_input("手機 2", label_visibility="collapsed")
             c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
             c1.markdown('<div class="lbl">市話 1</div>', unsafe_allow_html=True); n_tel = c2.text_input("市話 1", label_visibility="collapsed")
@@ -599,7 +603,9 @@ with tab2:
 
             if submit_new_cust:
                 clean_np = clean_phone(n_phone)
-                if not n_name or not clean_np or not n_addr: st.error("請填寫『姓名』、『手機 1』與『地址』！")
+                # 🌟 彈性驗證：只要有「手機 1」或「市話 1」就可以建檔
+                if not n_name or (not clean_np and not n_tel.strip()) or not n_addr: 
+                    st.error("❌ 請填寫『姓名』、『地址』，且『手機 1』與『市話 1』至少需填寫一項！")
                 else:
                     final_ntel = n_tel.strip() + (f" / {n_tel2.strip()}" if n_tel2.strip() else "")
                     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -638,7 +644,8 @@ with tab3:
                     c1.markdown('<div class="lbl">姓名 *</div>', unsafe_allow_html=True); t_name = c2.text_input("姓名", value=cname, label_visibility="collapsed")
                     c3.markdown('<div class="lbl">性別</div>', unsafe_allow_html=True); t_gender = c4.selectbox("性別", ["女", "男", "其他"], index=0 if cgender == "女" else (1 if cgender == "男" else 2), label_visibility="collapsed")
                     c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
-                    c1.markdown('<div class="lbl">手機 1 *</div>', unsafe_allow_html=True); t_phone = c2.text_input("手機 1", value=cphone, label_visibility="collapsed")
+                    # 🌟 移除原先在 UI 上的 * 星號強制感
+                    c1.markdown('<div class="lbl">手機 1</div>', unsafe_allow_html=True); t_phone = c2.text_input("手機 1", value=cphone, label_visibility="collapsed")
                     c3.markdown('<div class="lbl">手機 2</div>', unsafe_allow_html=True); t_phone_bak = c4.text_input("手機 2", value=cphone_bak, label_visibility="collapsed")
                     c1, c2, c3, c4 = st.columns([1.5, 3.5, 1.5, 3.5])
                     c1.markdown('<div class="lbl">市話 1</div>', unsafe_allow_html=True)
@@ -657,10 +664,15 @@ with tab3:
                     st.markdown("<br>", unsafe_allow_html=True)
                     btn_c1, btn_c2, btn_c3 = st.columns([3, 4, 3])
                     with btn_c2: t_save_btn = st.form_submit_button("💾 儲存資料", type="primary", use_container_width=True)
+                    
                     if t_save_btn:
-                        final_tel_t3 = t_tel.strip() + (f" / {t_tel2.strip()}" if t_tel2.strip() else "")
-                        update_customer_db(cid, t_code, t_name, t_gender, t_id_card, t_phone, t_phone_bak, final_tel_t3, cemail, t_addr, t_r2_name, t_r2_phone, t_r2_addr, t_pref, csource)
-                        st.success("✅ 更新成功！"); st.rerun()
+                        # 🌟 彈性驗證：只要有「手機 1」或「市話 1」就可以存檔
+                        if not t_name or (not t_phone.strip() and not t_tel.strip()) or not t_addr:
+                            st.error("❌ 姓名、地址不可為空，且『手機 1』與『市話 1』至少需填寫一項！")
+                        else:
+                            final_tel_t3 = t_tel.strip() + (f" / {t_tel2.strip()}" if t_tel2.strip() else "")
+                            update_customer_db(cid, t_code, t_name, t_gender, t_id_card, t_phone, t_phone_bak, final_tel_t3, cemail, t_addr, t_r2_name, t_r2_phone, t_r2_addr, t_pref, csource)
+                            st.success("✅ 更新成功！"); st.rerun()
 
                 st.markdown("---")
                 st.markdown("### 📦 新增訂單")
@@ -704,7 +716,6 @@ with tab4:
             if q_digits.startswith("886"): q_digits = "0" + q_digits[3:]
             elif len(q_digits) == 9 and q_digits.startswith("9"): q_digits = "0" + q_digits
             
-            # 🌟 新增收件人2姓名、收件人2手機 進入總表搜尋過濾
             mask = (
                 df_filtered["姓名"].str.lower().str.contains(q_lower, na=False) | 
                 df_filtered["收件人2姓名"].str.lower().str.contains(q_lower, na=False) |
